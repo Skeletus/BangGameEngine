@@ -9,6 +9,7 @@
 #include <string>
 #include <filesystem>
 #include <cstdarg>
+#include <cmath>
 
 #include "../core/Time.h"
 #include "Texture.h"
@@ -26,20 +27,18 @@ struct BgfxCb : public bgfx::CallbackI
                      filePath ? filePath : "?", line, str ? str : "");
         std::fflush(stderr);
 #ifdef _WIN32
-        // No lanzar excepción entre hilos. Imprime y termina limpio.
         ::TerminateProcess(GetCurrentProcess(), (UINT)code);
 #else
         std::abort();
 #endif
     }
-
     void traceVargs(const char*, uint16_t, const char* format, va_list argList) override
     {
         std::vfprintf(stderr, format, argList);
         std::fputc('\n', stderr);
     }
 
-    // Métodos requeridos por la interfaz:
+    // stubs requeridos
     void profilerBegin(const char*, uint32_t, const char*, uint16_t) override {}
     void profilerBeginLiteral(const char*, uint32_t, const char*, uint16_t) override {}
     void profilerEnd() override {}
@@ -48,23 +47,17 @@ struct BgfxCb : public bgfx::CallbackI
     void     cacheWrite(uint64_t, const void*, uint32_t) override {}
     void screenShot(const char* filePath, uint32_t w, uint32_t h, uint32_t,
                     const void*, uint32_t, bool) override
-    {
-        std::fprintf(stderr, "[BGFX] screenShot: %s (%ux%u)\n",
-                     filePath ? filePath : "(null)", w, h);
-    }
+    { std::fprintf(stderr, "[BGFX] screenShot: %s (%ux%u)\n", filePath?filePath:"(null)", w, h); }
     void captureBegin(uint32_t w, uint32_t h, uint32_t,
                       bgfx::TextureFormat::Enum fmt, bool yflip) override
-    {
-        std::fprintf(stderr, "[BGFX] captureBegin %ux%u fmt=%d yflip=%d\n",
-                     w, h, int(fmt), int(yflip));
-    }
+    { std::fprintf(stderr, "[BGFX] captureBegin %ux%u fmt=%d yflip=%d\n", w, h, int(fmt), int(yflip)); }
     void captureEnd() override { std::fprintf(stderr, "[BGFX] captureEnd\n"); }
     void captureFrame(const void*, uint32_t) override {}
 };
 
 static BgfxCb s_bgfxCb;
 
-// ===== Helpers de carpeta .exe / shaders =====
+// ===== Helpers ruta =====
 static std::string exeDir()
 {
 #ifdef _WIN32
@@ -121,8 +114,6 @@ static std::string detectAssetsBase()
             std::printf("[ASSETS] SANDBOXCITY_ASSETS_DIR no existe: %s\n", base.string().c_str());
         }
     }
-    
-    // Intenta desde la carpeta del .exe
     {
         std::filesystem::path base = std::filesystem::path(exeDir()) / "assets";
         if (std::filesystem::exists(base)) {
@@ -130,8 +121,6 @@ static std::string detectAssetsBase()
             return base.string();
         }
     }
-    
-    // Intenta ../../../assets (build/bin/RelWithDebInfo -> build -> bin -> .. -> raíz)
     {
         std::filesystem::path base = std::filesystem::path(exeDir()) / ".." / ".." / ".." / "assets";
         base = std::filesystem::weakly_canonical(base);
@@ -140,8 +129,6 @@ static std::string detectAssetsBase()
             return base.string();
         }
     }
-    
-    // Último intento: ../../assets
     {
         std::filesystem::path base = std::filesystem::path(exeDir()) / ".." / ".." / "assets";
         base = std::filesystem::weakly_canonical(base);
@@ -150,18 +137,12 @@ static std::string detectAssetsBase()
             return base.string();
         }
     }
-    
-    std::printf("[ASSETS] ERROR: No se encontró carpeta 'assets' en ninguna ubicación\n");
-    std::printf("[ASSETS] Buscó en:\n");
-    std::printf("[ASSETS]   - %s/assets\n", exeDir().c_str());
-    std::printf("[ASSETS]   - %s/../../../assets\n", exeDir().c_str());
-    std::printf("[ASSETS]   - %s/../../assets\n", exeDir().c_str());
+    std::printf("[ASSETS] ERROR: No se encontró carpeta 'assets'\n");
     return "assets";
 }
 
 static bgfx::TextureHandle makeFallbackChecker()
 {
-    // 2x2 RGBA (blanco y gris), evita pantalla negra si no hay archivo
     const uint8_t pix[] = {
         255,255,255,255,  64,64,64,255,
          64,64,64,255,   255,255,255,255
@@ -170,15 +151,12 @@ static bgfx::TextureHandle makeFallbackChecker()
     return bgfx::createTexture2D(2, 2, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE, mem);
 }
 
-
-
 static bool tryInitBackend(void* nwh, uint32_t w, uint32_t h, bgfx::RendererType::Enum type)
 {
-    // Sincroniza frame previo si quedó algún worker colgado de ejecuciones anteriores.
     bgfx::renderFrame();
 
     bgfx::Init init{};
-    init.type     = type;                  // Forzamos tipo solicitado
+    init.type     = type;
     init.vendorId = BGFX_PCI_ID_NONE;
     init.callback = &s_bgfxCb;
     init.debug    = true;
@@ -194,17 +172,15 @@ static bool tryInitBackend(void* nwh, uint32_t w, uint32_t h, bgfx::RendererType
     return bgfx::init(init);
 }
 
-// === Vértice con UV ===
-struct PosColorUvVertex {
+// ===== Vértice con normal =====
+struct PosNormColorUvVertex {
     float    x, y, z;
+    float    nx, ny, nz;
     uint32_t abgr;
     float    u, v;
 };
 
-Renderer::~Renderer()
-{
-    Shutdown();  // <-- garantiza liberar incluso si te olvidas
-}
+Renderer::~Renderer() { Shutdown(); }
 
 void Renderer::Init(void* nwh, uint32_t width, uint32_t height)
 {
@@ -214,12 +190,10 @@ void Renderer::Init(void* nwh, uint32_t width, uint32_t height)
     m_height = height;
     m_type = bgfx::RendererType::Count;
 
-    // **Estabilidad**: fuerza D3D11 por defecto (se puede cambiar con la env var SANDBOXCITY_BACKEND)
     bgfx::RendererType::Enum preferred = bgfx::RendererType::Direct3D11;
     if (const char* b = std::getenv("SANDBOXCITY_BACKEND")) {
         if      (std::string(b) == "d3d12") preferred = bgfx::RendererType::Direct3D12;
         else if (std::string(b) == "gl")    preferred = bgfx::RendererType::OpenGL;
-        else                                 preferred = bgfx::RendererType::Direct3D11;
     }
 
     bool ok = tryInitBackend(nwh, m_width, m_height, preferred);
@@ -231,46 +205,56 @@ void Renderer::Init(void* nwh, uint32_t width, uint32_t height)
 
     m_type = bgfx::getRendererType();
 
-    // Clear + viewport + debug
     bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x88AAFFFF, 1.0f, 0);
     bgfx::setViewRect(0, 0, 0, (uint16_t)m_width, (uint16_t)m_height);
 
     m_debugFlags = BGFX_DEBUG_TEXT;
     bgfx::setDebug(m_debugFlags);
 
-    // View/proj iniciales
     float ident[16]; bx::mtxIdentity(ident);
     std::memcpy(m_view, ident, sizeof(m_view));
     const float aspect = (m_height > 0) ? float(m_width)/float(m_height) : 16.0f/9.0f;
     SetProjection(60.0f, aspect, 0.1f, 1000.0f);
 
-    // Layout con UV
+    // Layout con normal
     m_layout.begin()
         .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Normal,   3, bgfx::AttribType::Float)
         .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
         .add(bgfx::Attrib::TexCoord0,2, bgfx::AttribType::Float)
     .end();
 
-    // Geometrías
     CreateCubeGeometry();
     CreateGroundPlane();
 
-    // Shaders (DX11)
     if (!LoadProgramDx11("vs_basic", "fs_basic")) {
         throw std::runtime_error("No se pudo cargar el programa DX11 (vs_basic/fs_basic).");
     }
 
-    // Uniform sampler + textura
-    m_uTexColor = bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
+    // Uniforms
+    m_uTexColor   = bgfx::createUniform("s_texColor",   bgfx::UniformType::Sampler);
+    m_uLightDir   = bgfx::createUniform("u_lightDir",   bgfx::UniformType::Vec4);
+    m_uLightColor = bgfx::createUniform("u_lightColor", bgfx::UniformType::Vec4);
+    m_uAmbient    = bgfx::createUniform("u_ambient",    bgfx::UniformType::Vec4);
 
+    m_uNormalMtx  = bgfx::createUniform("u_normalMtx",  bgfx::UniformType::Mat4);
+    m_uCameraPos  = bgfx::createUniform("u_cameraPos",  bgfx::UniformType::Vec4);
+    m_uSpecParams = bgfx::createUniform("u_specParams", bgfx::UniformType::Vec4);
+    m_uSpecColor  = bgfx::createUniform("u_specColor",  bgfx::UniformType::Vec4);
+    m_uBaseTint  = bgfx::createUniform("u_baseTint", bgfx::UniformType::Vec4);
+    m_uUvScale   = bgfx::createUniform("u_uvScale",  bgfx::UniformType::Vec4);
+
+    // Textura
     const std::string assets = detectAssetsBase();
     const std::string texPath = (std::filesystem::path(assets) / "textures" / "checker.png").string();
     m_texChecker = tex::LoadTexture2D(texPath.c_str(), /*hasMips=*/false);
-
     if (!bgfx::isValid(m_texChecker)) {
         std::printf("[TEX] Fallback procedural checker (2x2)\n");
         m_texChecker = makeFallbackChecker();
     }
+
+    // Estado inicial de iluminación (editable con teclas)
+    ResetLightingDefaults();
 
     m_initialized = true;
 }
@@ -279,7 +263,6 @@ void Renderer::Shutdown()
 {
     if (!m_initialized) return;
 
-    // Destruye recursos de GPU antes de cerrar bgfx
     if (bgfx::isValid(m_prog))       bgfx::destroy(m_prog);
     if (bgfx::isValid(m_vbh))        bgfx::destroy(m_vbh);
     if (bgfx::isValid(m_ibh))        bgfx::destroy(m_ibh);
@@ -288,11 +271,21 @@ void Renderer::Shutdown()
     if (bgfx::isValid(m_uTexColor))  bgfx::destroy(m_uTexColor);
     if (bgfx::isValid(m_texChecker)) bgfx::destroy(m_texChecker);
 
-    // Asegura que el worker thread termine el frame
+    if (bgfx::isValid(m_uLightDir))   bgfx::destroy(m_uLightDir);
+    if (bgfx::isValid(m_uLightColor)) bgfx::destroy(m_uLightColor);
+    if (bgfx::isValid(m_uAmbient))    bgfx::destroy(m_uAmbient);
+
+    if (bgfx::isValid(m_uNormalMtx))  bgfx::destroy(m_uNormalMtx);
+    if (bgfx::isValid(m_uCameraPos))  bgfx::destroy(m_uCameraPos);
+    if (bgfx::isValid(m_uSpecParams)) bgfx::destroy(m_uSpecParams);
+    if (bgfx::isValid(m_uSpecColor))  bgfx::destroy(m_uSpecColor);
+
+    if (bgfx::isValid(m_uBaseTint))  bgfx::destroy(m_uBaseTint);
+    if (bgfx::isValid(m_uUvScale))   bgfx::destroy(m_uUvScale);
+
     bgfx::renderFrame();
     bgfx::shutdown();
 
-    // Limpia estados
     m_prog        = BGFX_INVALID_HANDLE;
     m_vbh         = BGFX_INVALID_HANDLE;
     m_ibh         = BGFX_INVALID_HANDLE;
@@ -300,13 +293,23 @@ void Renderer::Shutdown()
     m_planeIbh    = BGFX_INVALID_HANDLE;
     m_uTexColor   = BGFX_INVALID_HANDLE;
     m_texChecker  = BGFX_INVALID_HANDLE;
+    m_uLightDir   = BGFX_INVALID_HANDLE;
+    m_uLightColor = BGFX_INVALID_HANDLE;
+    m_uAmbient    = BGFX_INVALID_HANDLE;
+    m_uNormalMtx  = BGFX_INVALID_HANDLE;
+    m_uCameraPos  = BGFX_INVALID_HANDLE;
+    m_uSpecParams = BGFX_INVALID_HANDLE;
+    m_uSpecColor  = BGFX_INVALID_HANDLE;
+    m_uBaseTint  = BGFX_INVALID_HANDLE;
+    m_uUvScale   = BGFX_INVALID_HANDLE;
+
     m_initialized = false;
 }
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
 {
     if (!m_initialized) return;
-    if (width == 0 || height == 0) return;   // evita reset con ventana minimizada
+    if (width == 0 || height == 0) return;
     if (width == m_width && height == m_height) return;
 
     m_width = width; m_height = height; m_pendingReset = true;
@@ -317,11 +320,50 @@ void Renderer::SetCameraDebugInfo(float x, float y, float z)
     m_camX = x; m_camY = y; m_camZ = z;
 }
 
+// Helpers
+static inline float clampf(float v, float a, float b) {
+    return v < a ? a : (v > b ? b : v);
+}
+
+void Renderer::ResetLightingDefaults()
+{
+    m_lightYaw   = bx::toRad(150.0f);   // mirada "desde atrás/izq"
+    m_lightPitch = bx::toRad(-60.0f);   // hacia abajo
+    m_ambient        = 0.5;
+    m_specIntensity  = 0.35f;
+    m_shininess      = 32.0f;
+    m_lightColor3[0] = m_lightColor3[1] = m_lightColor3[2] = 1.0f;
+}
+
+void Renderer::AddLightYawPitch(float dyawRad, float dpitchRad)
+{
+    m_lightYaw += dyawRad;
+    m_lightPitch += dpitchRad;
+    // Limita pitch para que no apunte hacia arriba (mantener “sol”)
+    const float minPitch = bx::toRad(-89.0f);
+    const float maxPitch = bx::toRad(-5.0f);
+    m_lightPitch = clampf(m_lightPitch, minPitch, maxPitch);
+}
+
+void Renderer::AdjustAmbient(float delta)
+{
+    m_ambient = clampf(m_ambient + delta, 0.0f, 1.0f);
+}
+
+void Renderer::AdjustSpecIntensity(float delta)
+{
+    m_specIntensity = clampf(m_specIntensity + delta, 0.0f, 1.0f);
+}
+
+void Renderer::AdjustShininess(float delta)
+{
+    m_shininess = clampf(m_shininess + delta, 2.0f, 256.0f);
+}
+
 void Renderer::BeginFrame()
 {
     if (!m_initialized) return;
 
-    // Si la ventana está minimizada, evita el reset/draw ese frame
     if (m_width == 0 || m_height == 0) {
         bgfx::frame();
         return;
@@ -336,6 +378,20 @@ void Renderer::BeginFrame()
     bgfx::setViewTransform(0, m_view, m_proj);
     bgfx::touch(0);
 
+    // Dirección de luz desde yaw/pitch
+    const float cy = std::cos(m_lightYaw);
+    const float sy = std::sin(m_lightYaw);
+    const float cp = std::cos(m_lightPitch);
+    const float sp = std::sin(m_lightPitch);
+    const float lightDirV[4] = { cy*cp, sp, sy*cp, 0.0f };
+
+    // Uniforms comunes
+    const float lightColor[4] = { m_lightColor3[0], m_lightColor3[1], m_lightColor3[2], 0.0f };
+    const float ambient[4]    = { m_ambient, m_ambient, m_ambient, 0.0f };
+    const float camPos[4]     = { m_camX, m_camY, m_camZ, 0.0f };
+    const float specParams[4] = { m_shininess, m_specIntensity, 0.0f, 0.0f };
+    const float specColor[4]  = { 1.0f, 1.0f, 1.0f, 0.0f };
+
     // HUD
     bgfx::dbgTextClear();
     bgfx::dbgTextPrintf(0, 0, 0x0F, "SandboxCity");
@@ -344,36 +400,78 @@ void Renderer::BeginFrame()
     bgfx::dbgTextPrintf(0, 3, 0x0E, "Camera: (%.1f, %.1f, %.1f)", m_camX, m_camY, m_camZ);
     bgfx::dbgTextPrintf(0, 4, 0x0C, "Controls: WASD/Mouse, F1=Wireframe(%s), V=VSync(%s)",
         m_wireframe ? "ON" : "OFF", m_vsync ? "ON" : "OFF");
+    bgfx::dbgTextPrintf(0, 5, 0x0A, "Light yaw/pitch: %.1f/%.1f deg | Ambient: %.2f | SpecI: %.2f | Shiny: %.0f",
+        bx::toDeg(m_lightYaw), bx::toDeg(m_lightPitch), m_ambient, m_specIntensity, m_shininess);
+    bgfx::dbgTextPrintf(0, 6, 0x08, "Arrow keys: rotate light | Z/X ambient -/+ | C/V spec -/+ | B/N shiny -/+ | R reset");
 
     if (m_type != bgfx::RendererType::Noop && bgfx::isValid(m_prog)) {
-        uint64_t state =  BGFX_STATE_WRITE_RGB
-                        | BGFX_STATE_WRITE_A
-                        | BGFX_STATE_WRITE_Z
-                        | BGFX_STATE_DEPTH_TEST_LESS;
+        const uint64_t state =  BGFX_STATE_WRITE_RGB
+                              | BGFX_STATE_WRITE_A
+                              | BGFX_STATE_WRITE_Z
+                              | BGFX_STATE_DEPTH_TEST_LESS;
 
         // === PLANO ===
         {
-            float mtx[16];
-            bx::mtxSRT(mtx, 1.0f,1.0f,1.0f,  0.0f,0.0f,0.0f,  0.0f,0.0f,0.0f);
-            bgfx::setTransform(mtx);
+            float model[16]; bx::mtxSRT(model, 1,1,1, 0,0,0, 0,0,0);
+            float invModel[16], normalMtx[16];
+            bx::mtxInverse(invModel, model);
+            bx::mtxTranspose(normalMtx, invModel);
+
+            bgfx::setTransform(model);
             bgfx::setVertexBuffer(0, m_planeVbh);
             bgfx::setIndexBuffer(m_planeIbh);
-            if (bgfx::isValid(m_texChecker))
-                bgfx::setTexture(0, m_uTexColor, m_texChecker);
+
+            // Albedo/UV (tint blanco y sin reescalar UV: 1,1)
+            const float baseTint[4] = {1,1,1,1};
+            const float uvScale[4]  = {1,1,0,0};
+            bgfx::setUniform(m_uBaseTint, baseTint);
+            bgfx::setUniform(m_uUvScale,  uvScale);
+
+            // Iluminación común
+            bgfx::setTexture(0, m_uTexColor, m_texChecker);
+            bgfx::setUniform(m_uLightDir,   lightDirV);
+            bgfx::setUniform(m_uLightColor, lightColor);
+            bgfx::setUniform(m_uAmbient,    ambient);
+            bgfx::setUniform(m_uCameraPos,  camPos);
+            bgfx::setUniform(m_uSpecParams, specParams);
+            bgfx::setUniform(m_uSpecColor,  specColor);
+            bgfx::setUniform(m_uNormalMtx,  normalMtx);
+
             bgfx::setState(state);
             bgfx::submit(0, m_prog);
         }
 
+
         // === CUBO ===
         {
-            float mtx[16];
+            float model[16];
             const float t = (float)Time::ElapsedTime();
-            bx::mtxSRT(mtx, 1.0f,1.0f,1.0f,  0.0f,t,0.0f,   0.0f,1.0f,-5.0f);
-            bgfx::setTransform(mtx);
+            bx::mtxSRT(model, 1,1,1, 0,t,0, 0,1,-5);
+
+            float invModel[16], normalMtx[16];
+            bx::mtxInverse(invModel, model);
+            bx::mtxTranspose(normalMtx, invModel);
+
+            bgfx::setTransform(model);
             bgfx::setVertexBuffer(0, m_vbh);
             bgfx::setIndexBuffer(m_ibh);
-            if (bgfx::isValid(m_texChecker))
-                bgfx::setTexture(0, m_uTexColor, m_texChecker);
+
+            // Albedo/UV del cubo
+            const float baseTint[4] = {1,1,1,1};
+            const float uvScale[4]  = {1,1,0,0};
+            bgfx::setUniform(m_uBaseTint, baseTint);
+            bgfx::setUniform(m_uUvScale,  uvScale);
+
+            // Iluminación común
+            bgfx::setTexture(0, m_uTexColor, m_texChecker);
+            bgfx::setUniform(m_uLightDir,   lightDirV);
+            bgfx::setUniform(m_uLightColor, lightColor);
+            bgfx::setUniform(m_uAmbient,    ambient);
+            bgfx::setUniform(m_uCameraPos,  camPos);
+            bgfx::setUniform(m_uSpecParams, specParams);
+            bgfx::setUniform(m_uSpecColor,  specColor);
+            bgfx::setUniform(m_uNormalMtx,  normalMtx);
+
             bgfx::setState(state);
             bgfx::submit(0, m_prog);
         }
@@ -385,10 +483,7 @@ void Renderer::EndFrame()
     if (m_initialized) bgfx::frame();
 }
 
-void Renderer::SetView(const float view[16])
-{
-    std::memcpy(m_view, view, sizeof(m_view));
-}
+void Renderer::SetView(const float view[16]) { std::memcpy(m_view, view, sizeof(m_view)); }
 
 void Renderer::SetProjection(float fovYDeg, float aspect, float znear, float zfar)
 {
@@ -407,18 +502,14 @@ const char* Renderer::GetBackendName() const
     }
 }
 
-// === Toggles ===
 void Renderer::ToggleWireframe() { SetWireframe(!m_wireframe); }
 void Renderer::ToggleVsync()     { SetVsync(!m_vsync); }
 
 void Renderer::SetWireframe(bool on)
 {
     m_wireframe = on;
-    if (m_wireframe)
-        m_debugFlags |= BGFX_DEBUG_WIREFRAME;
-    else
-        m_debugFlags &= ~BGFX_DEBUG_WIREFRAME;
-
+    if (m_wireframe) m_debugFlags |= BGFX_DEBUG_WIREFRAME;
+    else             m_debugFlags &= ~BGFX_DEBUG_WIREFRAME;
     bgfx::setDebug(m_debugFlags);
 }
 
@@ -430,7 +521,7 @@ void Renderer::SetVsync(bool on)
     m_pendingReset = true;
 }
 
-// === Helpers de shaders/recursos ===
+// === Carga shaders ===
 bgfx::ShaderHandle Renderer::LoadShaderFile(const char* path)
 {
     std::printf("[DEBUG] Intentando cargar: %s\n", path);
@@ -477,27 +568,33 @@ bool Renderer::LoadProgramDx11(const char* vsName, const char* fsName)
     return bgfx::isValid(m_prog);
 }
 
-// === Geometrías (idénticas a las que ya tienes) ===
+// === Geometrías ===
 void Renderer::CreateCubeGeometry()
 {
-    const struct PosColorUvVertex { float x,y,z; uint32_t abgr; float u,v; } verts[] = {
-        {-1.0f,  1.0f,  1.0f, 0xffff0000, 0.0f, 0.0f},
-        { 1.0f,  1.0f,  1.0f, 0xff00ff00, 1.0f, 0.0f},
-        {-1.0f, -1.0f,  1.0f, 0xff0000ff, 0.0f, 1.0f},
-        { 1.0f, -1.0f,  1.0f, 0xffffff00, 1.0f, 1.0f},
-        {-1.0f,  1.0f, -1.0f, 0xffff00ff, 0.0f, 0.0f},
-        { 1.0f,  1.0f, -1.0f, 0xff00ffff, 1.0f, 0.0f},
-        {-1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f},
-        { 1.0f, -1.0f, -1.0f, 0xffff8800, 1.0f, 1.0f},
+    const float s = 1.0f;
+    const PosNormColorUvVertex verts[] =
+    {
+        // x, y, z,      nx, ny, nz,                  color,      u, v
+        { -s,  s,  s,  -0.577f, 0.577f, 0.577f, 0xffffffff, 0.0f, 0.0f },
+        {  s,  s,  s,   0.577f, 0.577f, 0.577f, 0xffffffff, 1.0f, 0.0f },
+        { -s, -s,  s,  -0.577f,-0.577f, 0.577f, 0xffffffff, 0.0f, 1.0f },
+        {  s, -s,  s,   0.577f,-0.577f, 0.577f, 0xffffffff, 1.0f, 1.0f },
+        { -s,  s, -s,  -0.577f, 0.577f,-0.577f, 0xffffffff, 0.0f, 0.0f },
+        {  s,  s, -s,   0.577f, 0.577f,-0.577f, 0xffffffff, 1.0f, 0.0f },
+        { -s, -s, -s,  -0.577f,-0.577f,-0.577f, 0xffffffff, 0.0f, 1.0f },
+        {  s, -s, -s,   0.577f,-0.577f,-0.577f, 0xffffffff, 1.0f, 1.0f },
     };
-    const uint16_t indices[] = {
-        0,1,2,  1,3,2,
-        4,6,5,  5,6,7,
-        0,2,4,  4,2,6,
-        1,5,3,  5,7,3,
-        0,4,1,  1,4,5,
-        2,3,6,  3,7,6
+
+    const uint16_t indices[] =
+    {
+        0,1,2,  1,3,2, // +Z
+        4,6,5,  5,6,7, // -Z
+        0,2,4,  4,2,6, // -X
+        1,5,3,  5,7,3, // +X
+        0,4,1,  1,4,5, // +Y
+        2,3,6,  3,7,6  // -Y
     };
+
     m_vbh = bgfx::createVertexBuffer(bgfx::copy(verts, sizeof(verts)), m_layout);
     m_ibh = bgfx::createIndexBuffer (bgfx::copy(indices, sizeof(indices)));
 }
@@ -505,13 +602,16 @@ void Renderer::CreateCubeGeometry()
 void Renderer::CreateGroundPlane(float halfSize, float uvTiling)
 {
     const float hs = halfSize;
-    const struct PosColorUvVertex { float x,y,z; uint32_t abgr; float u,v; } verts[] = {
-        { -hs, 0.0f,  hs, 0xffcccccc, 0.0f,      uvTiling },
-        {  hs, 0.0f,  hs, 0xffcccccc, uvTiling,  uvTiling },
-        { -hs, 0.0f, -hs, 0xffcccccc, 0.0f,      0.0f     },
-        {  hs, 0.0f, -hs, 0xffcccccc, uvTiling,  0.0f     },
+
+    const PosNormColorUvVertex verts[] =
+    {
+        { -hs, 0.0f,  hs,   0.0f, 1.0f, 0.0f, 0xffffffff, 0.0f,      uvTiling },
+        {  hs, 0.0f,  hs,   0.0f, 1.0f, 0.0f, 0xffffffff, uvTiling,  uvTiling },
+        { -hs, 0.0f, -hs,   0.0f, 1.0f, 0.0f, 0xffffffff, 0.0f,      0.0f     },
+        {  hs, 0.0f, -hs,   0.0f, 1.0f, 0.0f, 0xffffffff, uvTiling,  0.0f     },
     };
     const uint16_t indices[] = { 0,1,2, 1,3,2 };
+
     m_planeVbh = bgfx::createVertexBuffer(bgfx::copy(verts, sizeof(verts)), m_layout);
     m_planeIbh = bgfx::createIndexBuffer (bgfx::copy(indices, sizeof(indices)));
 }

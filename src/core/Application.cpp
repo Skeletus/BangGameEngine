@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <GLFW/glfw3.h> // para códigos de tecla
+#include <bx/math.h>
 
 Application::Application() {
     m_window = std::make_unique<Window>("SandboxCity - Initializing...", 1280, 720);
@@ -106,7 +107,7 @@ void Application::Update(double dt) {
     m_window->GetMouseDelta(mdx, mdy);
     m_camera->AddYawPitch(mdx * mouseSens, -mdy * mouseSens);
 
-    // === Toggles ===
+    // === Toggles existentes ===
     static bool escLatch=false, f1Latch=false, vLatch=false;
     if (m_window->IsKeyDown(GLFW_KEY_ESCAPE)) {
         if (!escLatch) { escLatch = true; m_window->SetCursorLocked(false); }
@@ -120,12 +121,41 @@ void Application::Update(double dt) {
         if (!vLatch) { vLatch = true; m_renderer->ToggleVsync(); }
     } else vLatch = false;
 
-    // Aplica view a renderer
+    // === Controles de iluminación en runtime ===
+    const float rotSpeed = bx::toRad(90.0f);      // deg/s -> rad/s
+    const float ambSpeed = 0.8f;                  // por segundo
+    const float specISpd = 1.2f;                  // por segundo
+    const float shinySpd = 128.0f;                // unidades por segundo
+
+    // Girar luz con flechas
+    if (m_window->IsKeyDown(GLFW_KEY_LEFT))  m_renderer->AddLightYawPitch(-rotSpeed*(float)dt, 0.0f);
+    if (m_window->IsKeyDown(GLFW_KEY_RIGHT)) m_renderer->AddLightYawPitch( rotSpeed*(float)dt, 0.0f);
+    if (m_window->IsKeyDown(GLFW_KEY_UP))    m_renderer->AddLightYawPitch(0.0f, -rotSpeed*(float)dt*0.5f);
+    if (m_window->IsKeyDown(GLFW_KEY_DOWN))  m_renderer->AddLightYawPitch(0.0f,  rotSpeed*(float)dt*0.5f);
+
+    // Ambient Z/X
+    if (m_window->IsKeyDown(GLFW_KEY_Z)) m_renderer->AdjustAmbient(-ambSpeed*(float)dt);
+    if (m_window->IsKeyDown(GLFW_KEY_X)) m_renderer->AdjustAmbient( ambSpeed*(float)dt);
+
+    // Spec intensity C/V
+    if (m_window->IsKeyDown(GLFW_KEY_C)) m_renderer->AdjustSpecIntensity(-specISpd*(float)dt);
+    if (m_window->IsKeyDown(GLFW_KEY_V)) m_renderer->AdjustSpecIntensity( specISpd*(float)dt);
+
+    // Shininess B/N
+    if (m_window->IsKeyDown(GLFW_KEY_B)) m_renderer->AdjustShininess(-shinySpd*(float)dt);
+    if (m_window->IsKeyDown(GLFW_KEY_N)) m_renderer->AdjustShininess( shinySpd*(float)dt);
+
+    // Reset R (con latch)
+    static bool rLatch=false;
+    if (m_window->IsKeyDown(GLFW_KEY_R)) {
+        if (!rLatch) { rLatch = true; m_renderer->ResetLightingDefaults(); }
+    } else rLatch=false;
+
+    // Aplica view a renderer + debug de cámara
     float view[16];
     m_camera->GetView(view);
     m_renderer->SetView(view);
 
-    // Debug info de cámara
     float camX, camY, camZ;
     m_camera->GetPosition(camX, camY, camZ);
     m_renderer->SetCameraDebugInfo(camX, camY, camZ);
