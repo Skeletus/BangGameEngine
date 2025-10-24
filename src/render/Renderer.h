@@ -1,7 +1,7 @@
 #pragma once
 #include <bgfx/bgfx.h>
 #include <string>
-
+#include <vector>
 #include "../asset/Mesh.h"
 #include "Material.h"
 
@@ -108,7 +108,8 @@ private:
     float m_lightColor3[3] = {1,1,1};
 
     // === OBJ cargado ===
-    Mesh     m_objMesh;
-    Material m_objMat;
-    bool     m_objLoaded = false;
+    Mesh                   m_objMesh;
+    std::vector<Material>  m_objMaterials;
+    std::vector<MeshSubset> m_objSubsets;
+    bool                   m_objLoaded = false;
 };

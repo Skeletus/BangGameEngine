@@ -2,6 +2,13 @@
 #include <bgfx/bgfx.h>
 #include <cstdint>
 
+struct MeshSubset
+{
+    uint32_t startIndex = 0;
+    uint32_t indexCount = 0;
+    int      materialIndex = -1;
+};
+
 struct Mesh {
     bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
     bgfx::IndexBufferHandle  ibh = BGFX_INVALID_HANDLE;

@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <bgfx/bgfx.h>
 #include "../asset/Mesh.h"
 #include "../render/Material.h"
@@ -15,7 +16,8 @@ bool LoadObjToMesh(const std::string& objPath,
                    const bgfx::VertexLayout& layout,
                    bgfx::TextureHandle fallbackTex,
                    Mesh& outMesh,
-                   Material& outMat,
+                   std::vector<Material>& outMaterials,
+                   std::vector<MeshSubset>& outSubsets,
                    std::string* outLog = nullptr,
                    bool flipV = true);
 

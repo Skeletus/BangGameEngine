@@ -289,7 +289,11 @@ void Renderer::Shutdown()
 
     // OBJ y material
     m_objMesh.destroy();
-    m_objMat.destroy();
+    for (Material& mat : m_objMaterials) {
+        mat.destroy();
+    }
+    m_objMaterials.clear();
+    m_objSubsets.clear();
     m_objLoaded = false;
 
     bgfx::renderFrame();
@@ -374,9 +378,11 @@ bool Renderer::TryLoadObj(const std::string& path)
 {
     std::string log;
     Mesh mesh;
-    Material mat;
+    std::vector<Material> materials;
+    std::vector<MeshSubset> subsets;
 
-    const bool ok = asset::LoadObjToMesh(path, m_layout, m_texChecker, mesh, mat, &log, /*flipV=*/true);
+    const bool ok = asset::LoadObjToMesh(path, m_layout, m_texChecker, mesh, materials, subsets, &log, /*flipV=*/true);
+
     if (!ok) {
         if (!log.empty()) std::printf("[OBJ] %s\n", log.c_str());
         return false;
@@ -384,11 +390,16 @@ bool Renderer::TryLoadObj(const std::string& path)
 
     // Reemplaza si ya había
     m_objMesh.destroy();
-    m_objMat.destroy();
+    for (Material& m : m_objMaterials) {
+        m.destroy();
+    }
+    m_objMaterials.clear();
+    m_objSubsets.clear();
 
     m_objMesh = mesh;
-    m_objMat  = mat;
-    m_objLoaded = true;
+    m_objMaterials = std::move(materials);
+    m_objSubsets   = std::move(subsets);
+    m_objLoaded    = !m_objSubsets.empty();
 
     std::printf("[OBJ] Cargado OK: %s  (indices: %u)\n", path.c_str(), m_objMesh.indexCount);
     return true;
@@ -494,26 +505,45 @@ void Renderer::BeginFrame()
             bgfx::setUniform(m_uAmbient,    ambient);
             bgfx::setUniform(m_uCameraPos,  camPos);
 
-            if (m_objMesh.valid()) {
-                // OBJ cargado
-                bgfx::setVertexBuffer(0, m_objMesh.vbh);
-                bgfx::setIndexBuffer(m_objMesh.ibh);
+            if (m_objMesh.valid() && !m_objSubsets.empty()) {
+                for (const MeshSubset& subset : m_objSubsets) {
+                    if (subset.indexCount == 0) {
+                        continue;
+                    }
 
-                // Asegura que el material OBJ use tus parámetros especulares runtime si quieres
-                m_objMat.specParams[0] = m_shininess;
-                m_objMat.specParams[1] = m_specIntensity;
-                m_objMat.specColor[0] = m_objMat.specColor[1] = m_objMat.specColor[2] = 1.0f; m_objMat.specColor[3]=0.0f;
+                    bgfx::setVertexBuffer(0, m_objMesh.vbh);
+                    bgfx::setIndexBuffer(m_objMesh.ibh, subset.startIndex, subset.indexCount);
 
-                ApplyMaterial(m_objMat);
+                    // Iluminación común
+                    bgfx::setUniform(m_uLightDir,   lightDirV);
+                    bgfx::setUniform(m_uLightColor, lightColor);
+                    bgfx::setUniform(m_uAmbient,    ambient);
+                    bgfx::setUniform(m_uCameraPos,  camPos);
+
+                    Material drawMat = cubeMat;
+                    if (subset.materialIndex >= 0 && subset.materialIndex < (int)m_objMaterials.size()) {
+                        drawMat = m_objMaterials[subset.materialIndex];
+                    }
+
+                    drawMat.specParams[0] = m_shininess;
+                    drawMat.specParams[1] = m_specIntensity;
+                    drawMat.specColor[0] = drawMat.specColor[1] = drawMat.specColor[2] = 1.0f; drawMat.specColor[3]=0.0f;
+                    ApplyMaterial(drawMat);
+                    bgfx::setState(state);
+                    bgfx::submit(0, m_prog);
+                }
             } else {
                 // Fallback cubo
                 bgfx::setVertexBuffer(0, m_vbh);
                 bgfx::setIndexBuffer(m_ibh);
-                ApplyMaterial(cubeMat);
-            }
 
-            bgfx::setState(state);
-            bgfx::submit(0, m_prog);
+                ApplyMaterial(cubeMat);
+                
+                bgfx::setState(state);
+                bgfx::submit(0, m_prog);
+
+            }
+            
         }
     }
 }
