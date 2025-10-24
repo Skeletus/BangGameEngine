@@ -7,7 +7,7 @@
 
 namespace tex
 {
-    bgfx::TextureHandle LoadTexture2D(const char* path, bool genMips, uint64_t flags, int* outW, int* outH)
+    bgfx::TextureHandle LoadTexture2D(const char* path, bool hasMips, uint64_t flags, int* outW, int* outH)
     {
         int w=0, h=0, comp=0;
         stbi_uc* data = stbi_load(path, &w, &h, &comp, 4); // forzamos RGBA8
@@ -21,8 +21,12 @@ namespace tex
         const bgfx::Memory* mem = bgfx::copy(data, sizeBytes);
         stbi_image_free(data);
 
+        // *** IMPORTANTE: hasMips debe ser false si solo subimos L0 ***
         bgfx::TextureHandle th = bgfx::createTexture2D(
-            (uint16_t)w, (uint16_t)h, genMips, 1, bgfx::TextureFormat::RGBA8, flags, mem);
+            (uint16_t)w, (uint16_t)h,
+            /*hasMips=*/false,              // <-- aquí el fix
+            1, bgfx::TextureFormat::RGBA8,
+            flags, mem);
 
         if (outW) *outW = w;
         if (outH) *outH = h;

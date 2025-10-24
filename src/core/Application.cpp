@@ -30,6 +30,7 @@ Application::Application() {
 }
 
 Application::~Application() {
+    if (m_renderer) m_renderer->Shutdown(); // <- extra seguro
     m_renderer.reset();
     m_window.reset();
 }
@@ -73,7 +74,7 @@ void Application::Run() {
         m_window->PollEvents();
     }
 
-    m_renderer->Shutdown();
+    // NO llamar a m_renderer->Shutdown() aquí; el destructor se encarga.
 }
 
 void Application::Update(double dt) {
@@ -90,7 +91,6 @@ void Application::Update(double dt) {
     if (m_window->IsKeyDown(GLFW_KEY_SPACE))         dy += 1.0f;
     if (m_window->IsKeyDown(GLFW_KEY_LEFT_CONTROL))  dy -= 1.0f;
 
-    // Normaliza plano XZ si hace falta (std::sqrtf en lugar de bx::fsqrt)
     const float lenSq = dx*dx + dz*dz;
     if (lenSq > 0.0f) {
         const float len = std::sqrt(std::max(lenSq, 1e-12f));
@@ -101,21 +101,24 @@ void Application::Update(double dt) {
                    dy * moveSpeed * (float)dt,
                    dz * moveSpeed * (float)dt);
 
-    // Mirar con ratón (cuando el cursor está capturado)
+    // Mirar con ratón
     float mdx=0.0f, mdy=0.0f;
     m_window->GetMouseDelta(mdx, mdy);
     m_camera->AddYawPitch(mdx * mouseSens, -mdy * mouseSens);
 
-    // Esc para liberar/recapturar cursor
-    static bool escLatch = false;
+    // === Toggles ===
+    static bool escLatch=false, f1Latch=false, vLatch=false;
     if (m_window->IsKeyDown(GLFW_KEY_ESCAPE)) {
-        if (!escLatch) {
-            escLatch = true;
-            m_window->SetCursorLocked(false);
-        }
-    } else {
-        escLatch = false;
-    }
+        if (!escLatch) { escLatch = true; m_window->SetCursorLocked(false); }
+    } else escLatch = false;
+
+    if (m_window->IsKeyDown(GLFW_KEY_F1)) {
+        if (!f1Latch) { f1Latch = true; m_renderer->ToggleWireframe(); }
+    } else f1Latch = false;
+
+    if (m_window->IsKeyDown(GLFW_KEY_V)) {
+        if (!vLatch) { vLatch = true; m_renderer->ToggleVsync(); }
+    } else vLatch = false;
 
     // Aplica view a renderer
     float view[16];
@@ -129,14 +132,12 @@ void Application::Update(double dt) {
 }
 
 void Application::Render() {
-    // *** DEBUG: Imprime cada 60 frames ***
     static int frameCount = 0;
     if (++frameCount % 60 == 0) {
         float x, y, z;
         m_camera->GetPosition(x, y, z);
         printf("[DEBUG] Cam pos: (%.2f, %.2f, %.2f)\n", x, y, z);
     }
-    
     m_renderer->BeginFrame();
     m_renderer->EndFrame();
 }

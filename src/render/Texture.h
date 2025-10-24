@@ -5,29 +5,18 @@
 
 namespace tex
 {
-    // Crea una textura 2D y devuelve su handle (BGFX_INVALID_HANDLE si falla)
-    // flags por defecto: UV repeat + min/mag/mip LINEAR
+    // Crea una textura 2D y devuelve su handle (BGFX_INVALID_HANDLE si falla).
+    // Nota: En tu bgfx (vcpkg) usa flags BGFX_TEXTURE_* (no BGFX_SAMPLER_*).
+    //       El filtrado lineal y WRAP suelen ser por defecto => BGFX_TEXTURE_NONE.
     bgfx::TextureHandle LoadTexture2D(const char* path,
-                                      bool genMips = true,
-                                      uint64_t flags =
-                                          BGFX_SAMPLER_U_REPEAT |
-                                          BGFX_SAMPLER_V_REPEAT |
-                                          BGFX_SAMPLER_W_REPEAT |
-                                          BGFX_SAMPLER_MIN_LINEAR |
-                                          BGFX_SAMPLER_MAG_LINEAR |
-                                          BGFX_SAMPLER_MIP_LINEAR,
+                                      bool hasMips = false,
+                                      uint64_t flags = BGFX_TEXTURE_NONE,
                                       int* outW = nullptr,
                                       int* outH = nullptr);
 
     inline bgfx::TextureHandle LoadTexture2D(const std::string& path,
                                              bool genMips = true,
-                                             uint64_t flags =
-                                                 BGFX_SAMPLER_U_REPEAT |
-                                                 BGFX_SAMPLER_V_REPEAT |
-                                                 BGFX_SAMPLER_W_REPEAT |
-                                                 BGFX_SAMPLER_MIN_LINEAR |
-                                                 BGFX_SAMPLER_MAG_LINEAR |
-                                                 BGFX_SAMPLER_MIP_LINEAR,
+                                             uint64_t flags = BGFX_TEXTURE_NONE,
                                              int* outW = nullptr,
                                              int* outH = nullptr)
     {

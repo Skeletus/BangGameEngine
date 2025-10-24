@@ -16,6 +16,9 @@
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\render\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\render\Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\window\Window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -34,6 +37,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\render\Renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\render\Texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\window\Window.h">
