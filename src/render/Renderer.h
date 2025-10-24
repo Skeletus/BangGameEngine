@@ -2,11 +2,14 @@
 #include <bgfx/bgfx.h>
 #include <string>
 
+#include "../asset/Mesh.h"
+#include "Material.h"
+
 class Renderer
 {
 public:
     Renderer() = default;
-    ~Renderer();                        // asegura cierre
+    ~Renderer();
 
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
@@ -32,30 +35,29 @@ public:
     void SetWireframe(bool on);
     void SetVsync(bool on);
 
-    // -------- Controles de iluminación en runtime --------
+    // Controles luz (ya los tienes)
     void ResetLightingDefaults();
     void AddLightYawPitch(float dyawRad, float dpitchRad);
-    void AdjustAmbient(float delta);          // +/- por segundo (0..1)
-    void AdjustSpecIntensity(float delta);    // +/- por segundo (0..1)
-    void AdjustShininess(float delta);        // +/- (2..256 aprox)
-
-    // Lectura para HUD
-    float GetLightYaw() const      { return m_lightYaw; }
-    float GetLightPitch() const    { return m_lightPitch; }
-    float GetAmbient() const       { return m_ambient; }
-    float GetSpecIntensity() const { return m_specIntensity; }
-    float GetShininess() const     { return m_shininess; }
+    void AdjustAmbient(float delta);
+    void AdjustSpecIntensity(float delta);
+    void AdjustShininess(float delta);
 
 private:
     // Shaders / programas
     bgfx::ShaderHandle LoadShaderFile(const char* path);
     bool LoadProgramDx11(const char* vsName, const char* fsName);
 
-    // Geometrías
+    // Geometrías built-in
     void CreateCubeGeometry();
     void CreateGroundPlane(float halfSize = 250.0f, float uvTiling = 50.0f);
 
-    // Estado / backend
+    // Material helper
+    void ApplyMaterial(const Material& mtl);
+
+    // Intentar cargar un OBJ (ruta absoluta o relativa)
+    bool TryLoadObj(const std::string& path);
+
+private:
     uint32_t    m_width  = 0;
     uint32_t    m_height = 0;
     uint32_t    m_resetFlags = BGFX_RESET_VSYNC;
@@ -84,27 +86,29 @@ private:
     bgfx::VertexBufferHandle m_planeVbh = BGFX_INVALID_HANDLE;
     bgfx::IndexBufferHandle  m_planeIbh = BGFX_INVALID_HANDLE;
 
-    // Textura + uniforms comunes
-    bgfx::UniformHandle m_uTexColor   = BGFX_INVALID_HANDLE;
-    bgfx::TextureHandle m_texChecker  = BGFX_INVALID_HANDLE;
+    // Textura + uniforms
+    bgfx::UniformHandle m_uTexColor  = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle m_texChecker = BGFX_INVALID_HANDLE;
 
     bgfx::UniformHandle m_uLightDir   = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_uLightColor = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_uAmbient    = BGFX_INVALID_HANDLE;
 
-    // Iluminación especular y matrices
-    bgfx::UniformHandle m_uNormalMtx  = BGFX_INVALID_HANDLE; // mat4
-    bgfx::UniformHandle m_uCameraPos  = BGFX_INVALID_HANDLE; // vec4
-    bgfx::UniformHandle m_uSpecParams = BGFX_INVALID_HANDLE; // x=shininess, y=intensity
-    bgfx::UniformHandle m_uSpecColor  = BGFX_INVALID_HANDLE; // rgb
-    bgfx::UniformHandle m_uBaseTint   = BGFX_INVALID_HANDLE; // vec4
-    bgfx::UniformHandle m_uUvScale    = BGFX_INVALID_HANDLE; // vec4
+    bgfx::UniformHandle m_uNormalMtx  = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_uCameraPos  = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_uSpecParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_uSpecColor  = BGFX_INVALID_HANDLE;
 
-    // -------- Estado editable en runtime --------
-    float m_lightYaw   = 0.0f;   // rad
-    float m_lightPitch = 0.0f;   // rad (negativo apunta hacia abajo)
-    float m_ambient        = 0.15f;  // 0..1
-    float m_specIntensity  = 0.35f;  // 0..1
-    float m_shininess      = 32.0f;  // 2..256 aprox
-    float m_lightColor3[3] = {1.0f, 1.0f, 1.0f};
+    bgfx::UniformHandle m_uBaseTint   = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_uUvScale    = BGFX_INVALID_HANDLE;
+
+    // Luz runtime (ya los tienes)
+    float m_lightYaw = 0.f, m_lightPitch = 0.f;
+    float m_ambient = 0.5f, m_specIntensity = 0.35f, m_shininess = 32.f;
+    float m_lightColor3[3] = {1,1,1};
+
+    // === OBJ cargado ===
+    Mesh     m_objMesh;
+    Material m_objMat;
+    bool     m_objLoaded = false;
 };

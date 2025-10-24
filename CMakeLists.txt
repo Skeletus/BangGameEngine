@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Paquetes vcpkg
 find_package(bgfx CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
+find_package(tinyobjloader CONFIG REQUIRED)
 
 # === Fuentes ===
 file(GLOB_RECURSE SANDBOXCITY_SOURCES
@@ -42,6 +43,7 @@ endif()
 target_link_libraries(SandboxCity PRIVATE
   bgfx::bgfx
   glfw
+  tinyobjloader::tinyobjloader
 )
 
 # Salida por configuración (VS multi-config)

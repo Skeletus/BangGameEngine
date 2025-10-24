@@ -1,0 +1,15 @@
+newmtl head
+Kd 1.000 1.000 1.000
+map_Kd head.png
+
+newmtl torso
+Kd 1.000 1.000 1.000
+map_Kd torso.png
+
+newmtl jeans
+Kd 1.000 1.000 1.000
+map_Kd jeans.png
+
+newmtl sneaker
+Kd 1.000 1.000 1.000
+map_Kd sneaker.png
