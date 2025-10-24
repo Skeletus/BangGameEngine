@@ -1,0 +1,21 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "xstring": "cpp",
+        "array": "cpp",
+        "chrono": "cpp",
+        "deque": "cpp",
+        "filesystem": "cpp",
+        "format": "cpp",
+        "forward_list": "cpp",
+        "initializer_list": "cpp",
+        "list": "cpp",
+        "ranges": "cpp",
+        "regex": "cpp",
+        "span": "cpp",
+        "vector": "cpp",
+        "xhash": "cpp",
+        "xtree": "cpp",
+        "xutility": "cpp"
+    }
+}

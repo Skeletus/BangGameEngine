@@ -1,0 +1,29 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25 },
+  "configurePresets": [
+    {
+      "name": "windows-vcpkg",
+      "displayName": "Windows MSVC + vcpkg (x64)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build",
+      "toolchainFile": "D:/Repositorios Github/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-relwithdebinfo",
+      "configurePreset": "windows-vcpkg",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "build-debug",
+      "configurePreset": "windows-vcpkg",
+      "configuration": "Debug"
+    }
+  ]
+}
