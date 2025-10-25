@@ -52,15 +52,19 @@ bool LoadObjToMesh(const std::string& objPath,
                    const bgfx::VertexLayout& layout,
                    bgfx::TextureHandle fallbackTex,
                    Mesh& outMesh,
-                   Material& outMat,
+                   std::vector<Material>& outMaterials,
+                   std::vector<MeshSubset>& outSubsets,
                    std::string* outLog,
                    bool flipV)
 {
     if (outLog) outLog->clear();
 
     outMesh.destroy();
-    outMat.destroy();
-    outMat.reset();
+    for (Material& m : outMaterials) {
+        m.destroy();
+    }
+    outMaterials.clear();
+    outSubsets.clear();
 
     tinyobj::ObjReaderConfig cfg;
     cfg.triangulate = true;
@@ -68,7 +72,7 @@ bool LoadObjToMesh(const std::string& objPath,
     // Base dir para buscar .mtl y texturas
     std::filesystem::path p(objPath);
     const std::string baseDir = p.parent_path().string();
-    cfg.mtl_search_path = baseDir;
+    cfg.mtl_search_path = baseDir.empty() ? std::string() : (baseDir + std::string(1, std::filesystem::path::preferred_separator));
 
     tinyobj::ObjReader reader;
     if (!reader.ParseFromFile(objPath, cfg)) {
@@ -84,13 +88,12 @@ bool LoadObjToMesh(const std::string& objPath,
     const auto& materials = reader.GetMaterials();
 
     std::vector<VertexPNUV8> vertices;
-    std::vector<uint16_t>    indices;    // usamos 16-bit para simplicidad
-
     vertices.reserve(2048);
-    indices.reserve(4096);
 
-    // Tomaremos el primer material válido que aparezca en alguna cara
-    int pickedMatIdx = -1;
+    std::unordered_map<int, std::vector<uint16_t>> perMaterialIndices;
+    std::unordered_map<int, size_t> materialOrderLut;
+    std::vector<int> materialOrder;
+    size_t totalIndexCount = 0;
 
     for (const auto& shape : shapes) {
         size_t indexOffset = 0;
@@ -98,9 +101,13 @@ bool LoadObjToMesh(const std::string& objPath,
             const size_t fv = (size_t)shape.mesh.num_face_vertices[f]; // debería ser 3 (triangulado)
             if (fv != 3) { indexOffset += fv; continue; }
 
-            // material de esta cara (si existe)
-            if (pickedMatIdx < 0 && f < shape.mesh.material_ids.size()) {
-                pickedMatIdx = shape.mesh.material_ids[f];
+            int matIdx = -1;
+            if (f < shape.mesh.material_ids.size()) {
+                matIdx = shape.mesh.material_ids[f];
+            }
+            if (materialOrderLut.find(matIdx) == materialOrderLut.end()) {
+                materialOrderLut[matIdx] = materialOrder.size();
+                materialOrder.push_back(matIdx);
             }
 
             // Posiciones de la cara (para normal si falta)
@@ -163,16 +170,65 @@ bool LoadObjToMesh(const std::string& objPath,
             uint16_t i1 = emitVertex(idx1, faceN);
             uint16_t i2 = emitVertex(idx2, faceN);
 
-            indices.push_back(i0);
-            indices.push_back(i1);
-            indices.push_back(i2);
+            auto& list = perMaterialIndices[matIdx];
+            list.push_back(i0);
+            list.push_back(i1);
+            list.push_back(i2);
+            totalIndexCount += 3;
 
             indexOffset += fv;
         }
     }
 
-    if (vertices.empty() || indices.empty()) {
+    if (vertices.empty() || totalIndexCount == 0) {
         if (outLog) *outLog = "OBJ sin geometría válida.";
+        return false;
+    }
+
+    std::vector<uint16_t> indices;
+    indices.reserve(totalIndexCount);
+
+    for (int matId : materialOrder) {
+        auto it = perMaterialIndices.find(matId);
+        if (it == perMaterialIndices.end() || it->second.empty()) {
+            continue;
+        }
+
+        MeshSubset subset;
+        subset.startIndex = (uint32_t)indices.size();
+        subset.indexCount = (uint32_t)it->second.size();
+        subset.materialIndex = (int)outMaterials.size();
+
+        Material mat;
+        mat.reset();
+        mat.albedo = fallbackTex;
+        mat.ownsTexture = false;
+
+        if (matId >= 0 && matId < (int)materials.size()) {
+            const tinyobj::material_t& srcMat = materials[matId];
+            mat.baseTint[0] = srcMat.diffuse[0];
+            mat.baseTint[1] = srcMat.diffuse[1];
+            mat.baseTint[2] = srcMat.diffuse[2];
+            mat.baseTint[3] = 1.0f;
+
+            if (!srcMat.diffuse_texname.empty()) {
+                std::string texPath = joinPath(baseDir, srcMat.diffuse_texname);
+                bgfx::TextureHandle th = tex::LoadTexture2D(texPath.c_str(), /*hasMips*/false);
+                if (bgfx::isValid(th)) {
+                    mat.albedo = th;
+                    mat.ownsTexture = true;
+                }
+            }
+        }
+
+        outMaterials.push_back(mat);
+        outSubsets.push_back(subset);
+
+        indices.insert(indices.end(), it->second.begin(), it->second.end());
+    }
+
+    if (indices.empty()) {
+        if (outLog) *outLog = "OBJ sin índices por material.";
         return false;
     }
 
@@ -188,29 +244,6 @@ bool LoadObjToMesh(const std::string& objPath,
         outMesh.destroy();
         if (outLog) *outLog = "Fallo al crear buffers de malla.";
         return false;
-    }
-
-    // Material: usa el primer material referenciado
-    outMat.reset();
-    outMat.albedo = fallbackTex;  // por defecto, checker
-    outMat.ownsTexture = false;
-
-    if (pickedMatIdx >= 0 && pickedMatIdx < (int)materials.size()) {
-        const tinyobj::material_t& m = materials[pickedMatIdx];
-        // Tint desde Kd
-        outMat.baseTint[0] = m.diffuse[0];
-        outMat.baseTint[1] = m.diffuse[1];
-        outMat.baseTint[2] = m.diffuse[2];
-        outMat.baseTint[3] = 1.0f;
-        // Textura difusa si existe
-        if (!m.diffuse_texname.empty()) {
-            std::string texPath = joinPath(baseDir, m.diffuse_texname);
-            bgfx::TextureHandle th = tex::LoadTexture2D(texPath.c_str(), /*hasMips*/false);
-            if (bgfx::isValid(th)) {
-                outMat.albedo = th;
-                outMat.ownsTexture = true;
-            }
-        }
     }
 
     return true;
