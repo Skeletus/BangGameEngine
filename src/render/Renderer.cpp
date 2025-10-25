@@ -496,21 +496,14 @@ void Renderer::BeginFrame()
             bx::mtxInverse(invModel, model);
             bx::mtxTranspose(normalMtx, invModel);
 
-            bgfx::setTransform(model);
-            bgfx::setUniform(m_uNormalMtx,  normalMtx);
-
-            // Iluminación común
-            bgfx::setUniform(m_uLightDir,   lightDirV);
-            bgfx::setUniform(m_uLightColor, lightColor);
-            bgfx::setUniform(m_uAmbient,    ambient);
-            bgfx::setUniform(m_uCameraPos,  camPos);
-
             if (m_objMesh.valid() && !m_objSubsets.empty()) {
                 for (const MeshSubset& subset : m_objSubsets) {
                     if (subset.indexCount == 0) {
                         continue;
                     }
 
+                    bgfx::setTransform(model);
+                    bgfx::setUniform(m_uNormalMtx,  normalMtx);
                     bgfx::setVertexBuffer(0, m_objMesh.vbh);
                     bgfx::setIndexBuffer(m_objMesh.ibh, subset.startIndex, subset.indexCount);
 
@@ -528,20 +521,28 @@ void Renderer::BeginFrame()
                     drawMat.specParams[0] = m_shininess;
                     drawMat.specParams[1] = m_specIntensity;
                     drawMat.specColor[0] = drawMat.specColor[1] = drawMat.specColor[2] = 1.0f; drawMat.specColor[3]=0.0f;
+
                     ApplyMaterial(drawMat);
+
                     bgfx::setState(state);
                     bgfx::submit(0, m_prog);
                 }
-            } else {
-                // Fallback cubo
+            } else
+            {
+                bgfx::setTransform(model);
+                bgfx::setUniform(m_uNormalMtx,  normalMtx);
+                bgfx::setUniform(m_uLightDir,   lightDirV);
+                bgfx::setUniform(m_uLightColor, lightColor);
+                bgfx::setUniform(m_uAmbient,    ambient);
+                bgfx::setUniform(m_uCameraPos,  camPos);
+
                 bgfx::setVertexBuffer(0, m_vbh);
                 bgfx::setIndexBuffer(m_ibh);
 
                 ApplyMaterial(cubeMat);
-                
+
                 bgfx::setState(state);
                 bgfx::submit(0, m_prog);
-
             }
             
         }
