@@ -21,6 +21,8 @@ public:
 private:
     void Update(double dt);
     void Render();
+    void ReloadScene(const char* reason);
+    void PrintSceneSummary(const char* reason);
 
 private:
     std::unique_ptr<Window>                      m_window;
@@ -29,7 +31,7 @@ private:
     std::unique_ptr<resource::ResourceManager>   m_resourceManager;
 
     Scene     m_scene;
-    EntityId  m_demoEntity = kInvalidEntity;
+    std::string m_scenePath;
 
     size_t m_lastEntityCount        = 0;
     size_t m_lastTransformCount     = 0;

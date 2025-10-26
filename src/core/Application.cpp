@@ -6,6 +6,7 @@
 #include "../camera/Camera.h"
 #include "../ecs/TransformSystem.h"
 #include "../ecs/Scene.h"
+#include "../scene/SceneLoader.h"
 
 #include <cstdio>
 
@@ -26,13 +27,8 @@ Application::Application() {
     m_resourceManager->Initialize();
     m_renderer->SetResourceManager(m_resourceManager.get());
 
-    std::shared_ptr<Mesh> demoMesh;
-    if (auto meshEntry = m_resourceManager->LoadMesh("models/demo.obj"))
-    {
-        demoMesh = meshEntry->mesh;
-    }
-
-    m_demoEntity = SetupEcsDemo(m_scene, demoMesh, nullptr);
+    m_scenePath = "assets/scenes/demo.json";
+    ReloadScene("inicial");
     
     m_camera = std::make_unique<Camera>();
     m_window->SetCursorLocked(true); // captura ratón para mirar
@@ -164,6 +160,20 @@ void Application::Update(double dt) {
         f9Latch = false;
     }
 
+    static bool f5Latch = false;
+    if (m_window->IsKeyDown(GLFW_KEY_F5))
+    {
+        if (!f5Latch)
+        {
+            f5Latch = true;
+            ReloadScene("recargada");
+        }
+    }
+    else
+    {
+        f5Latch = false;
+    }
+
     // === Controles de iluminación en runtime ===
     const float rotSpeed = bx::toRad(90.0f);      // deg/s -> rad/s
     const float ambSpeed = 0.8f;                  // por segundo
@@ -203,13 +213,6 @@ void Application::Update(double dt) {
     m_camera->GetPosition(camX, camY, camZ);
     m_renderer->SetCameraDebugInfo(camX, camY, camZ);
 
-    if (Transform* transform = m_scene.GetTransform(m_demoEntity))
-    {
-        const float rotationSpeed = bx::toRad(45.0f);
-        transform->rotationEuler.y += rotationSpeed * static_cast<float>(dt);
-        transform->MarkDirty();
-    }
-
     m_lastDirtyBefore = m_scene.CountDirtyTransforms();
     TransformSystem::Update(m_scene);
     m_lastDirtyAfter = m_scene.CountDirtyTransforms();
@@ -224,6 +227,43 @@ void Application::Update(double dt) {
     m_lastEntityCount       = m_scene.GetEntityCount();
     m_lastTransformCount    = m_scene.GetTransformCount();
     m_lastMeshRendererCount = m_scene.GetMeshRendererCount();
+}
+
+void Application::ReloadScene(const char* reason)
+{
+    if (!m_resourceManager)
+    {
+        std::printf("[App] ResourceManager no disponible para recargar escena.\n");
+        return;
+    }
+
+    const std::string sceneFile = m_scenePath.empty() ? std::string("assets/scenes/demo.json") : m_scenePath;
+    std::string error;
+    if (!LoadSceneFromJson(sceneFile, m_scene, *m_resourceManager, &error))
+    {
+        std::printf("[App] Error al cargar escena '%s': %s\n", sceneFile.c_str(), error.c_str());
+        return;
+    }
+
+    TransformSystem::Update(m_scene);
+    m_lastEntityCount       = m_scene.GetEntityCount();
+    m_lastTransformCount    = m_scene.GetTransformCount();
+    m_lastMeshRendererCount = m_scene.GetMeshRendererCount();
+    PrintSceneSummary(reason);
+}
+
+void Application::PrintSceneSummary(const char* reason)
+{
+    const char* label = reason ? reason : "actualizada";
+    std::printf("[App] Escena %s: Entities=%zu | Transforms=%zu | MeshRenderers=%zu\n",
+                label,
+                m_scene.GetEntityCount(),
+                m_scene.GetTransformCount(),
+                m_scene.GetMeshRendererCount());
+    if (m_resourceManager)
+    {
+        m_resourceManager->PrintStats();
+    }
 }
 
 void Application::Render() {
