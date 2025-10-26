@@ -13,6 +13,7 @@ struct Mesh {
     bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
     bgfx::IndexBufferHandle  ibh = BGFX_INVALID_HANDLE;
     uint32_t indexCount = 0;
+    uint32_t vertexCount = 0;
 
     inline bool valid() const {
         return bgfx::isValid(vbh) && bgfx::isValid(ibh) && indexCount > 0;
@@ -23,5 +24,6 @@ struct Mesh {
         vbh = BGFX_INVALID_HANDLE;
         ibh = BGFX_INVALID_HANDLE;
         indexCount = 0;
+        vertexCount = 0;
     }
 };

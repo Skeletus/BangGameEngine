@@ -55,9 +55,12 @@ bool LoadObjToMesh(const std::string& objPath,
                    std::vector<Material>& outMaterials,
                    std::vector<MeshSubset>& outSubsets,
                    std::string* outLog,
-                   bool flipV)
+                   bool flipV,
+                   uint32_t* outVertexCount,
+                   std::function<bgfx::TextureHandle(const std::string&)> textureLoader)
 {
     if (outLog) outLog->clear();
+    if (outVertexCount) *outVertexCount = 0;
 
     outMesh.destroy();
     for (Material& m : outMaterials) {
@@ -94,6 +97,8 @@ bool LoadObjToMesh(const std::string& objPath,
     std::unordered_map<int, size_t> materialOrderLut;
     std::vector<int> materialOrder;
     size_t totalIndexCount = 0;
+
+    const bool useCustomTextureLoader = static_cast<bool>(textureLoader);
 
     for (const auto& shape : shapes) {
         size_t indexOffset = 0;
@@ -202,7 +207,7 @@ bool LoadObjToMesh(const std::string& objPath,
         Material mat;
         mat.reset();
         mat.albedo = fallbackTex;
-        mat.ownsTexture = false;
+        mat.ownsTexture = !useCustomTextureLoader;
 
         if (matId >= 0 && matId < (int)materials.size()) {
             const tinyobj::material_t& srcMat = materials[matId];
@@ -213,10 +218,18 @@ bool LoadObjToMesh(const std::string& objPath,
 
             if (!srcMat.diffuse_texname.empty()) {
                 std::string texPath = joinPath(baseDir, srcMat.diffuse_texname);
-                bgfx::TextureHandle th = tex::LoadTexture2D(texPath.c_str(), /*hasMips*/false);
-                if (bgfx::isValid(th)) {
-                    mat.albedo = th;
-                    mat.ownsTexture = true;
+                if (useCustomTextureLoader) {
+                    bgfx::TextureHandle th = textureLoader(texPath);
+                    if (bgfx::isValid(th)) {
+                        mat.albedo = th;
+                        mat.ownsTexture = false;
+                    }
+                } else {
+                    bgfx::TextureHandle th = tex::LoadTexture2D(texPath.c_str(), /*hasMips*/false);
+                    if (bgfx::isValid(th)) {
+                        mat.albedo = th;
+                        mat.ownsTexture = true;
+                    }
                 }
             }
         }
@@ -239,6 +252,11 @@ bool LoadObjToMesh(const std::string& objPath,
     outMesh.vbh = bgfx::createVertexBuffer(vmem, layout);
     outMesh.ibh = bgfx::createIndexBuffer (imem);
     outMesh.indexCount = (uint32_t)indices.size();
+    outMesh.vertexCount = (uint32_t)vertices.size();
+
+    if (outVertexCount) {
+        *outVertexCount = (uint32_t)vertices.size();
+    }
 
     if (!bgfx::isValid(outMesh.vbh) || !bgfx::isValid(outMesh.ibh)) {
         outMesh.destroy();

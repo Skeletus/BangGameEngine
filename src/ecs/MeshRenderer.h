@@ -2,12 +2,14 @@
 
 #include "Entity.h"
 
+#include <memory>
+
 struct Mesh;
 struct Material;
 
 struct MeshRenderer
 {
-    const Mesh*     mesh      = nullptr;
-    const Material* material  = nullptr;
+    std::shared_ptr<Mesh>     mesh;
+    std::shared_ptr<Material> material;
 };
 

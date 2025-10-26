@@ -2,6 +2,7 @@
 #include "Time.h"
 #include "../window/Window.h"
 #include "../render/Renderer.h"
+#include "../resource/ResourceManager.h"
 #include "../camera/Camera.h"
 #include "../ecs/TransformSystem.h"
 #include "../ecs/Scene.h"
@@ -21,7 +22,26 @@ Application::Application() {
     m_renderer = std::make_unique<Renderer>();
     m_renderer->Init(m_window->GetNativeWindowHandle(), m_window->GetWidth(), m_window->GetHeight());
 
-    m_demoEntity = SetupEcsDemo(m_scene, m_renderer->GetCubeMesh(), m_renderer->GetDefaultMaterial());
+    m_resourceManager = std::make_unique<resource::ResourceManager>();
+    m_resourceManager->Initialize();
+    m_renderer->SetResourceManager(m_resourceManager.get());
+
+    std::shared_ptr<Mesh> demoMesh;
+    std::shared_ptr<Material> demoMaterial;
+    if (auto meshEntry = m_resourceManager->LoadMesh("models/demo.obj"))
+    {
+        demoMesh = meshEntry->mesh;
+        if (!meshEntry->materials.empty())
+        {
+            demoMaterial = meshEntry->materials.front();
+        }
+    }
+    if (!demoMaterial)
+    {
+        demoMaterial = m_resourceManager->GetDefaultMaterial();
+    }
+
+    m_demoEntity = SetupEcsDemo(m_scene, demoMesh, demoMaterial);
 
     m_camera = std::make_unique<Camera>();
     m_window->SetCursorLocked(true); // captura ratón para mirar
@@ -37,6 +57,8 @@ Application::Application() {
 }
 
 Application::~Application() {
+    if (m_resourceManager) m_resourceManager->Shutdown();
+    m_resourceManager.reset();
     if (m_renderer) m_renderer->Shutdown(); // <- extra seguro
     m_renderer.reset();
     m_window.reset();
@@ -133,6 +155,23 @@ void Application::Update(double dt) {
     if (m_window->IsKeyDown(GLFW_KEY_V)) {
         if (!vLatch) { vLatch = true; m_renderer->ToggleVsync(); }
     } else vLatch = false;
+
+    static bool f9Latch = false;
+    if (m_window->IsKeyDown(GLFW_KEY_F9))
+    {
+        if (!f9Latch)
+        {
+            f9Latch = true;
+            if (m_resourceManager)
+            {
+                m_resourceManager->PrintStats();
+            }
+        }
+    }
+    else
+    {
+        f9Latch = false;
+    }
 
     // === Controles de iluminación en runtime ===
     const float rotSpeed = bx::toRad(90.0f);      // deg/s -> rad/s
