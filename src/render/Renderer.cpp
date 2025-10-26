@@ -16,6 +16,9 @@
 #include "Material.h"
 #include "../asset/Mesh.h"
 #include "../asset/ObjLoader.h"
+#include "../ecs/Scene.h"
+#include "../ecs/Transform.h"
+#include "../ecs/TransformSystem.h"
 
 #ifdef _WIN32
   #include <windows.h>
@@ -253,6 +256,12 @@ void Renderer::Init(void* nwh, uint32_t width, uint32_t height)
         m_texChecker = makeFallbackChecker();
     }
 
+    m_defaultMaterial.reset();
+    m_defaultMaterial.albedo = m_texChecker;
+    m_defaultMaterial.ownsTexture = false;
+    m_defaultMaterial.specParams[0] = m_shininess;
+    m_defaultMaterial.specParams[1] = m_specIntensity;
+
     // Estado inicial de iluminación (editable con teclas)
     ResetLightingDefaults();
 
@@ -293,6 +302,8 @@ void Renderer::Shutdown()
     m_objMaterials.clear();
     m_objSubsets.clear();
     m_objLoaded = false;
+
+    m_defaultMaterial.reset();
 
     bgfx::renderFrame();
     bgfx::shutdown();
@@ -340,6 +351,9 @@ void Renderer::ResetLightingDefaults()
     m_specIntensity  = 0.35f;
     m_shininess      = 32.0f;
     m_lightColor3[0] = m_lightColor3[1] = m_lightColor3[2] = 1.0f;
+
+    m_defaultMaterial.specParams[0] = m_shininess;
+    m_defaultMaterial.specParams[1] = m_specIntensity;
 }
 
 void Renderer::AddLightYawPitch(float dyawRad, float dpitchRad)
@@ -352,8 +366,17 @@ void Renderer::AddLightYawPitch(float dyawRad, float dpitchRad)
 }
 
 void Renderer::AdjustAmbient(float delta)       { m_ambient       = clampf(m_ambient + delta, 0.0f, 1.0f); }
-void Renderer::AdjustSpecIntensity(float delta) { m_specIntensity = clampf(m_specIntensity + delta, 0.0f, 1.0f); }
-void Renderer::AdjustShininess(float delta)     { m_shininess     = clampf(m_shininess + delta, 2.0f, 256.0f); }
+void Renderer::AdjustSpecIntensity(float delta)
+{
+    m_specIntensity = clampf(m_specIntensity + delta, 0.0f, 1.0f);
+    m_defaultMaterial.specParams[1] = m_specIntensity;
+}
+
+void Renderer::AdjustShininess(float delta)
+{
+    m_shininess = clampf(m_shininess + delta, 2.0f, 256.0f);
+    m_defaultMaterial.specParams[0] = m_shininess;
+}
 
 // === Material v1 ===
 void Renderer::ApplyMaterial(const Material& m)
@@ -394,10 +417,7 @@ void Renderer::SubmitMeshLit(const Mesh& mesh, const Material& material, const f
     bgfx::setUniform(m_uCameraPos,  m_camPos4);
     bgfx::setUniform(m_uNormalMtx,  normalMtx);
 
-    Material runtimeMaterial = material;
-    runtimeMaterial.specParams[0] = m_shininess;
-    runtimeMaterial.specParams[1] = m_specIntensity;
-    ApplyMaterial(runtimeMaterial);
+    ApplyMaterial(material);
 
     bgfx::setState(m_defaultState);
     bgfx::submit(0, m_prog);
@@ -435,11 +455,15 @@ bool Renderer::TryLoadObj(const std::string& path)
     return true;
 }
 
-void Renderer::BeginFrame()
+void Renderer::BeginFrame(Scene* scene)
 {
     if (!m_initialized) return;
 
     if (m_width == 0 || m_height == 0) { bgfx::frame(); return; }
+
+#if defined(SANDBOXCITY_KEEP_LEGACY_DRAWS) && SANDBOXCITY_KEEP_LEGACY_DRAWS
+    (void)scene;
+#endif
 
     if (m_pendingReset) {
         bgfx::reset(m_width, m_height, m_resetFlags);
@@ -555,6 +579,76 @@ void Renderer::BeginFrame()
         {
             SubmitMeshLit(m_cubeMesh, cubeMat, model);
         }
+    }
+#endif
+
+#if !defined(SANDBOXCITY_KEEP_LEGACY_DRAWS) || !SANDBOXCITY_KEEP_LEGACY_DRAWS
+    size_t drawCount = 0;
+
+    if (scene && m_type != bgfx::RendererType::Noop && bgfx::isValid(m_prog))
+    {
+        TransformSystem::Update(*scene);
+
+        auto& meshRenderers = scene->GetMeshRenderers();
+        for (const auto& [entity, mr] : meshRenderers)
+        {
+            const Mesh* mesh = mr.mesh;
+            if (!mesh || !mesh->valid())
+            {
+                continue;
+            }
+
+            const Transform* transform = scene->GetTransform(entity);
+            if (!transform)
+            {
+                continue;
+            }
+
+            if (transform->dirty)
+            {
+                TransformSystem::Update(*scene);
+                transform = scene->GetTransform(entity);
+                if (!transform || transform->dirty)
+                {
+                    continue;
+                }
+            }
+
+            bgfx::setTransform(transform->world);
+            bgfx::setVertexBuffer(0, mesh->vbh);
+            bgfx::setIndexBuffer(mesh->ibh, 0, mesh->indexCount);
+
+            float invWorld[16];
+            float normalMtx[16];
+            if (!bx::mtxInverse(invWorld, transform->world))
+            {
+                bx::mtxIdentity(invWorld);
+            }
+            bx::mtxTranspose(normalMtx, invWorld);
+
+            bgfx::setUniform(m_uLightDir,   m_lightDir4);
+            bgfx::setUniform(m_uLightColor, m_lightColor4);
+            bgfx::setUniform(m_uAmbient,    m_ambient4);
+            bgfx::setUniform(m_uCameraPos,  m_camPos4);
+            bgfx::setUniform(m_uNormalMtx,  normalMtx);
+
+            const Material* material = mr.material ? mr.material : &m_defaultMaterial;
+            ApplyMaterial(*material);
+
+            bgfx::setState(m_defaultState);
+            bgfx::submit(0, m_prog);
+
+            ++drawCount;
+        }
+    }
+
+    if (drawCount > 0)
+    {
+        std::printf("[Renderer] ECS render: %zu draws\n", drawCount);
+    }
+    else
+    {
+        std::printf("[Renderer] Scene empty (no draws)\n");
     }
 #endif
 }
