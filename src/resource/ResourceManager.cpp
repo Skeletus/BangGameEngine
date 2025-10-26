@@ -12,6 +12,10 @@
 #include <system_error>
 #include <utility>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "MeshLoader.h"
 #include "TextureLoader.h"
 
@@ -118,7 +122,7 @@ TextureResource::~TextureResource()
     if (bgfx::isValid(handle))
     {
         bgfx::destroy(handle);
-        handle = BGFX_INVALID_HANDLE;
+        handle = bgfx::TextureHandle{bgfx::kInvalidHandle};
     }
 }
 
@@ -230,7 +234,7 @@ std::shared_ptr<Material> ResourceManager::LoadMaterial(const std::string& relat
 
     Material materialData;
     materialData.reset();
-    materialData.albedo = m_checkerTexture ? m_checkerTexture->handle : BGFX_INVALID_HANDLE;
+    materialData.albedo = m_checkerTexture ? m_checkerTexture->handle : bgfx::TextureHandle{bgfx::kInvalidHandle};
     materialData.ownsTexture = false;
 
     std::string mapKd;
@@ -269,7 +273,7 @@ std::shared_ptr<Material> ResourceManager::LoadMaterial(const std::string& relat
         else
         {
             textureRef = m_checkerTexture;
-            materialData.albedo = m_checkerTexture ? m_checkerTexture->handle : BGFX_INVALID_HANDLE;
+            materialData.albedo = m_checkerTexture ? m_checkerTexture->handle : bgfx::TextureHandle{bgfx::kInvalidHandle};
         }
     }
 
@@ -309,14 +313,14 @@ std::shared_ptr<MeshEntry> ResourceManager::LoadMesh(const std::string& relative
     }
 
     MeshLoadResult result;
-    const bgfx::TextureHandle fallback = m_checkerTexture ? m_checkerTexture->handle : BGFX_INVALID_HANDLE;
+    const bgfx::TextureHandle fallback = m_checkerTexture ? m_checkerTexture->handle : bgfx::TextureHandle{bgfx::kInvalidHandle};
     auto textureLoader = [this](const std::string& absPath) -> bgfx::TextureHandle {
         std::filesystem::path abs(absPath);
         std::error_code ec;
         std::filesystem::path rel = std::filesystem::relative(abs, m_assetsRoot, ec);
         std::string normalizedRel = NormalizePath(ec ? abs.generic_string() : rel.generic_string());
         auto tex = LoadTextureInternal(normalizedRel, abs.lexically_normal().string());
-        return tex ? tex->handle : (m_checkerTexture ? m_checkerTexture->handle : BGFX_INVALID_HANDLE);
+        return tex ? tex->handle : (m_checkerTexture ? m_checkerTexture->handle : bgfx::TextureHandle{bgfx::kInvalidHandle});
     };
 
     std::string log;
@@ -549,7 +553,7 @@ std::shared_ptr<Material> ResourceManager::CreateDefaultMaterial()
     mat.reset();
     mat.baseTint[0] = mat.baseTint[1] = mat.baseTint[2] = 1.0f;
     mat.baseTint[3] = 1.0f;
-    mat.albedo = m_checkerTexture ? m_checkerTexture->handle : BGFX_INVALID_HANDLE;
+    mat.albedo = m_checkerTexture ? m_checkerTexture->handle : bgfx::TextureHandle{bgfx::kInvalidHandle};
     mat.ownsTexture = false;
     mat.specParams[0] = 32.0f;
     mat.specParams[1] = 0.35f;

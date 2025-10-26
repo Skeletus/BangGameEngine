@@ -62,6 +62,8 @@ public:
 
     const std::string& GetAssetsRoot() const { return m_assetsRoot; }
 
+    enum class CacheType { Texture, Material, Mesh };
+
 private:
     struct MeshCacheEntry;
 
@@ -77,7 +79,7 @@ private:
     std::shared_ptr<Material> CreateDefaultMaterial();
     void EnsureDefaultResources();
 
-    enum class CacheType { Texture, Material, Mesh };
+    
     void LogCacheHit(CacheType type, const std::string& path) const;
     void LogCacheMiss(CacheType type, const std::string& path) const;
 

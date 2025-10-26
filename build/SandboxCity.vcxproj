@@ -405,6 +405,12 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\render\Renderer.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\render\Texture.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\render\Texture.h" />
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\resource\MeshLoader.cpp" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\resource\MeshLoader.h" />
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\resource\ResourceManager.cpp" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\resource\ResourceManager.h" />
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\resource\TextureLoader.cpp" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\resource\TextureLoader.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\window\Window.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\window\Window.h" />
   </ItemGroup>
