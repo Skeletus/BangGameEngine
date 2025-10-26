@@ -536,18 +536,40 @@ void Renderer::BeginFrame(Scene* scene)
             };
 
             const auto& submeshes = mesh->submeshes;
-            if (submeshes.empty())
+            auto pickMaterial = [&](uint32_t submeshIndex, int meshMaterialIndex) -> const Material*
             {
-                const Material* material = overrideMat;
-                if (!material && !mesh->materials.empty() && mesh->materials.front())
+                const Material* material = nullptr;
+                auto overrideIt = mr.materialOverrides.find(submeshIndex);
+                if (overrideIt != mr.materialOverrides.end() && overrideIt->second)
                 {
-                    material = mesh->materials.front().get();
+                    material = overrideIt->second.get();
                 }
+
+                if (!material)
+                {
+                    material = overrideMat;
+                }
+
+                if (!material && meshMaterialIndex >= 0 && meshMaterialIndex < (int)mesh->materials.size())
+                {
+                    const auto& meshMat = mesh->materials[meshMaterialIndex];
+                    if (meshMat)
+                    {
+                        material = meshMat.get();
+                    }
+                }
+
                 if (!material && fallback)
                 {
                     material = fallback.get();
                 }
 
+                return material;
+            };
+
+            if (submeshes.empty())
+            {
+                const Material* material = pickMaterial(0, mesh->materials.empty() ? -1 : 0);
                 if (submitDraw(material, 0, mesh->indexCount))
                 {
                     ++drawCount;
@@ -555,26 +577,15 @@ void Renderer::BeginFrame(Scene* scene)
                 continue;
             }
 
+            uint32_t submeshIndex = 0;
             for (const Submesh& submesh : submeshes)
             {
-                const Material* material = overrideMat;
-                if (!material && submesh.materialIndex >= 0 && submesh.materialIndex < (int)mesh->materials.size())
-                {
-                    const auto& meshMat = mesh->materials[submesh.materialIndex];
-                    if (meshMat)
-                    {
-                        material = meshMat.get();
-                    }
-                }
-                if (!material && fallback)
-                {
-                    material = fallback.get();
-                }
-
+                const Material* material = pickMaterial(submeshIndex, submesh.materialIndex);
                 if (submitDraw(material, submesh.startIndex, submesh.indexCount))
                 {
                     ++drawCount;
                 }
+                ++submeshIndex;
             }
         }
     }
