@@ -620,10 +620,7 @@ void Renderer::BeginFrame(Scene* scene)
 
             float invWorld[16];
             float normalMtx[16];
-            if (!bx::mtxInverse(invWorld, transform->world))
-            {
-                bx::mtxIdentity(invWorld);
-            }
+            bx::mtxInverse(invWorld, transform->world);
             bx::mtxTranspose(normalMtx, invWorld);
 
             bgfx::setUniform(m_uLightDir,   m_lightDir4);
