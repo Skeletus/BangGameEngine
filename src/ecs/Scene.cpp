@@ -340,9 +340,13 @@ EntityId SetupEcsDemo(Scene& scene, const Mesh& cubeMesh, const Material& defaul
         EntityId e = scene.CreateEntity();
         if (Transform* t = scene.AddTransform(e))
         {
-            const float offsetX = float(i % 20) - 9.5f;
-            const float offsetZ = -6.0f - float(i / 20);
+            // Aumenta el espaciado de 1.0 a 2.5 o 3.0
+            const float spacing = 2.5f; // Cambia este valor para más/menos espacio
+            const float offsetX = (float(i % 20) - 9.5f) * spacing;
+            const float offsetZ = (-6.0f - float(i / 20)) * spacing;
+
             t->position = {offsetX, 0.0f, offsetZ};
+            t->scale = {0.4f, 0.4f, 0.4f};
             t->MarkDirty();
         }
         if (MeshRenderer* render = scene.AddMeshRenderer(e))

@@ -385,14 +385,8 @@ void Renderer::SubmitMeshLit(const Mesh& mesh, const Material& material, const f
 
     float invModel[16];
     float normalMtx[16];
-    if (!bx::mtxInverse(invModel, model))
-    {
-        bx::mtxIdentity(normalMtx);
-    }
-    else
-    {
-        bx::mtxTranspose(normalMtx, invModel);
-    }
+    bx::mtxInverse(invModel, model);
+    bx::mtxTranspose(normalMtx, invModel);
 
     bgfx::setUniform(m_uLightDir,   m_lightDir4);
     bgfx::setUniform(m_uLightColor, m_lightColor4);
