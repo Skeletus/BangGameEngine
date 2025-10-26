@@ -10,6 +10,7 @@ struct Material;
 class Window;
 class Renderer;
 class Camera;
+namespace resource { class ResourceManager; }
 
 class Application {
 public:
@@ -22,9 +23,10 @@ private:
     void Render();
 
 private:
-    std::unique_ptr<Window>   m_window;
-    std::unique_ptr<Renderer> m_renderer;
-    std::unique_ptr<Camera>   m_camera;
+    std::unique_ptr<Window>                      m_window;
+    std::unique_ptr<Renderer>                    m_renderer;
+    std::unique_ptr<Camera>                      m_camera;
+    std::unique_ptr<resource::ResourceManager>   m_resourceManager;
 
     Scene     m_scene;
     EntityId  m_demoEntity = kInvalidEntity;

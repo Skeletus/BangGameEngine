@@ -12,10 +12,9 @@
 #include <cmath>
 
 #include "../core/Time.h"
-#include "Texture.h"
 #include "Material.h"
 #include "../asset/Mesh.h"
-#include "../asset/ObjLoader.h"
+#include "../resource/ResourceManager.h"
 #include "../ecs/Scene.h"
 #include "../ecs/Transform.h"
 #include "../ecs/TransformSystem.h"
@@ -103,55 +102,6 @@ static std::string detectShaderBaseDx11()
     }
     std::printf("[SHADERS] ADVERTENCIA: usando ruta relativa 'shaders/dx11'\n");
     return "shaders/dx11";
-}
-
-static std::string detectAssetsBase()
-{
-    if (const char* env = std::getenv("SANDBOXCITY_ASSETS_DIR"))
-    {
-        std::filesystem::path base(env);
-        if (std::filesystem::exists(base)) {
-            std::printf("[ASSETS] Usando SANDBOXCITY_ASSETS_DIR: %s\n", base.string().c_str());
-            return base.string();
-        } else {
-            std::printf("[ASSETS] SANDBOXCITY_ASSETS_DIR no existe: %s\n", base.string().c_str());
-        }
-    }
-    {
-        std::filesystem::path base = std::filesystem::path(exeDir()) / "assets";
-        if (std::filesystem::exists(base)) {
-            std::printf("[ASSETS] Usando carpeta junto al .exe: %s\n", base.string().c_str());
-            return base.string();
-        }
-    }
-    {
-        std::filesystem::path base = std::filesystem::path(exeDir()) / ".." / ".." / ".." / "assets";
-        base = std::filesystem::weakly_canonical(base);
-        if (std::filesystem::exists(base)) {
-            std::printf("[ASSETS] Usando fallback ../../../assets: %s\n", base.string().c_str());
-            return base.string();
-        }
-    }
-    {
-        std::filesystem::path base = std::filesystem::path(exeDir()) / ".." / ".." / "assets";
-        base = std::filesystem::weakly_canonical(base);
-        if (std::filesystem::exists(base)) {
-            std::printf("[ASSETS] Usando fallback ../../assets: %s\n", base.string().c_str());
-            return base.string();
-        }
-    }
-    std::printf("[ASSETS] ERROR: No se encontró carpeta 'assets'\n");
-    return "assets";
-}
-
-static bgfx::TextureHandle makeFallbackChecker()
-{
-    const uint8_t pix[] = {
-        255,255,255,255,  64,64,64,255,
-         64,64,64,255,   255,255,255,255
-    };
-    const bgfx::Memory* mem = bgfx::copy(pix, sizeof(pix));
-    return bgfx::createTexture2D(2, 2, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE, mem);
 }
 
 static bool tryInitBackend(void* nwh, uint32_t w, uint32_t h, bgfx::RendererType::Enum type)
@@ -247,27 +197,13 @@ void Renderer::Init(void* nwh, uint32_t width, uint32_t height)
     m_uBaseTint   = bgfx::createUniform("u_baseTint",   bgfx::UniformType::Vec4);
     m_uUvScale    = bgfx::createUniform("u_uvScale",    bgfx::UniformType::Vec4);
 
-    // Textura por defecto
-    const std::string assets = detectAssetsBase();
-    const std::string texPath = (std::filesystem::path(assets) / "textures" / "checker.png").string();
-    m_texChecker = tex::LoadTexture2D(texPath.c_str(), /*hasMips=*/false);
-    if (!bgfx::isValid(m_texChecker)) {
-        std::printf("[TEX] Fallback procedural checker (2x2)\n");
-        m_texChecker = makeFallbackChecker();
+    if (m_resourceManager)
+    {
+        m_resourceManager->Initialize();
     }
-
-    m_defaultMaterial.reset();
-    m_defaultMaterial.albedo = m_texChecker;
-    m_defaultMaterial.ownsTexture = false;
-    m_defaultMaterial.specParams[0] = m_shininess;
-    m_defaultMaterial.specParams[1] = m_specIntensity;
 
     // Estado inicial de iluminación (editable con teclas)
     ResetLightingDefaults();
-
-    // Intenta cargar un OBJ por defecto (si no existe, seguimos con el cubo)
-    const std::string defaultObj = (std::filesystem::path(assets) / "models" / "demo.obj").string();
-    m_objLoaded = TryLoadObj(defaultObj);
 
     m_initialized = true;
 }
@@ -280,7 +216,6 @@ void Renderer::Shutdown()
     m_cubeMesh.destroy();
     m_planeMesh.destroy();
     if (bgfx::isValid(m_uTexColor))  bgfx::destroy(m_uTexColor);
-    if (bgfx::isValid(m_texChecker)) bgfx::destroy(m_texChecker);
 
     if (bgfx::isValid(m_uLightDir))   bgfx::destroy(m_uLightDir);
     if (bgfx::isValid(m_uLightColor)) bgfx::destroy(m_uLightColor);
@@ -294,23 +229,11 @@ void Renderer::Shutdown()
     if (bgfx::isValid(m_uBaseTint))  bgfx::destroy(m_uBaseTint);
     if (bgfx::isValid(m_uUvScale))   bgfx::destroy(m_uUvScale);
 
-    // OBJ y material
-    m_objMesh.destroy();
-    for (Material& mat : m_objMaterials) {
-        mat.destroy();
-    }
-    m_objMaterials.clear();
-    m_objSubsets.clear();
-    m_objLoaded = false;
-
-    m_defaultMaterial.reset();
-
     bgfx::renderFrame();
     bgfx::shutdown();
 
     m_prog        = BGFX_INVALID_HANDLE;
     m_uTexColor   = BGFX_INVALID_HANDLE;
-    m_texChecker  = BGFX_INVALID_HANDLE;
     m_uLightDir   = BGFX_INVALID_HANDLE;
     m_uLightColor = BGFX_INVALID_HANDLE;
     m_uAmbient    = BGFX_INVALID_HANDLE;
@@ -352,8 +275,14 @@ void Renderer::ResetLightingDefaults()
     m_shininess      = 32.0f;
     m_lightColor3[0] = m_lightColor3[1] = m_lightColor3[2] = 1.0f;
 
-    m_defaultMaterial.specParams[0] = m_shininess;
-    m_defaultMaterial.specParams[1] = m_specIntensity;
+    if (m_resourceManager)
+    {
+        if (auto fallback = m_resourceManager->GetDefaultMaterial())
+        {
+            fallback->specParams[0] = m_shininess;
+            fallback->specParams[1] = m_specIntensity;
+        }
+    }
 }
 
 void Renderer::AddLightYawPitch(float dyawRad, float dpitchRad)
@@ -369,21 +298,44 @@ void Renderer::AdjustAmbient(float delta)       { m_ambient       = clampf(m_amb
 void Renderer::AdjustSpecIntensity(float delta)
 {
     m_specIntensity = clampf(m_specIntensity + delta, 0.0f, 1.0f);
-    m_defaultMaterial.specParams[1] = m_specIntensity;
+    if (m_resourceManager)
+    {
+        if (auto fallback = m_resourceManager->GetDefaultMaterial())
+        {
+            fallback->specParams[1] = m_specIntensity;
+        }
+    }
 }
 
 void Renderer::AdjustShininess(float delta)
 {
     m_shininess = clampf(m_shininess + delta, 2.0f, 256.0f);
-    m_defaultMaterial.specParams[0] = m_shininess;
+    if (m_resourceManager)
+    {
+        if (auto fallback = m_resourceManager->GetDefaultMaterial())
+        {
+            fallback->specParams[0] = m_shininess;
+        }
+    }
 }
 
 // === Material v1 ===
 void Renderer::ApplyMaterial(const Material& m)
 {
-    const bgfx::TextureHandle tex = bgfx::isValid(m.albedo) ? m.albedo : m_texChecker;
+    bgfx::TextureHandle fallback = BGFX_INVALID_HANDLE;
+    if (m_resourceManager)
+    {
+        if (auto checker = m_resourceManager->GetCheckerTexture())
+        {
+            fallback = checker->handle;
+        }
+    }
 
-    bgfx::setTexture(0, m_uTexColor, tex);
+    const bgfx::TextureHandle tex = bgfx::isValid(m.albedo) ? m.albedo : fallback;
+    if (bgfx::isValid(tex))
+    {
+        bgfx::setTexture(0, m_uTexColor, tex);
+    }
     bgfx::setUniform(m_uBaseTint,   m.baseTint);
     bgfx::setUniform(m_uUvScale,    m.uvScale);
     bgfx::setUniform(m_uSpecParams, m.specParams);
@@ -421,38 +373,6 @@ void Renderer::SubmitMeshLit(const Mesh& mesh, const Material& material, const f
 
     bgfx::setState(m_defaultState);
     bgfx::submit(0, m_prog);
-}
-
-// === OBJ loader (intento) ===
-bool Renderer::TryLoadObj(const std::string& path)
-{
-    std::string log;
-    Mesh mesh;
-    std::vector<Material> materials;
-    std::vector<MeshSubset> subsets;
-
-    const bool ok = asset::LoadObjToMesh(path, m_layout, m_texChecker, mesh, materials, subsets, &log, /*flipV=*/true);
-
-    if (!ok) {
-        if (!log.empty()) std::printf("[OBJ] %s\n", log.c_str());
-        return false;
-    }
-
-    // Reemplaza si ya había
-    m_objMesh.destroy();
-    for (Material& m : m_objMaterials) {
-        m.destroy();
-    }
-    m_objMaterials.clear();
-    m_objSubsets.clear();
-
-    m_objMesh = mesh;
-    m_objMaterials = std::move(materials);
-    m_objSubsets   = std::move(subsets);
-    m_objLoaded    = !m_objSubsets.empty();
-
-    std::printf("[OBJ] Cargado OK: %s  (indices: %u)\n", path.c_str(), m_objMesh.indexCount);
-    return true;
 }
 
 void Renderer::BeginFrame(Scene* scene)
@@ -514,7 +434,15 @@ void Renderer::BeginFrame(Scene* scene)
 #if defined(SANDBOXCITY_KEEP_LEGACY_DRAWS) && SANDBOXCITY_KEEP_LEGACY_DRAWS
     if (m_type != bgfx::RendererType::Noop && bgfx::isValid(m_prog)) {
         Material planeMat{};
-        planeMat.albedo = m_texChecker;
+        bgfx::TextureHandle fallbackTex = BGFX_INVALID_HANDLE;
+        if (m_resourceManager)
+        {
+            if (auto checker = m_resourceManager->GetCheckerTexture())
+            {
+                fallbackTex = checker->handle;
+            }
+        }
+        planeMat.albedo = fallbackTex;
         planeMat.baseTint[0]=planeMat.baseTint[1]=planeMat.baseTint[2]=1.0f; planeMat.baseTint[3]=1.0f;
         planeMat.uvScale[0]=planeMat.uvScale[1]=1.0f;
         planeMat.specParams[0] = m_shininess;
@@ -534,48 +462,7 @@ void Renderer::BeginFrame(Scene* scene)
         const float t = (float)Time::ElapsedTime();
         bx::mtxSRT(model, 1,1,1, 0,t,0,  0,1,-5);
 
-        if (m_objMesh.valid() && !m_objSubsets.empty()) {
-            float invModel[16];
-            float normalMtx[16];
-            if (!bx::mtxInverse(invModel, model))
-            {
-                bx::mtxIdentity(normalMtx);
-            }
-            else
-            {
-                bx::mtxTranspose(normalMtx, invModel);
-            }
-
-            for (const MeshSubset& subset : m_objSubsets) {
-                if (subset.indexCount == 0) {
-                    continue;
-                }
-
-                bgfx::setTransform(model);
-                bgfx::setUniform(m_uNormalMtx,  normalMtx);
-                bgfx::setVertexBuffer(0, m_objMesh.vbh);
-                bgfx::setIndexBuffer(m_objMesh.ibh, subset.startIndex, subset.indexCount);
-
-                bgfx::setUniform(m_uLightDir,   m_lightDir4);
-                bgfx::setUniform(m_uLightColor, m_lightColor4);
-                bgfx::setUniform(m_uAmbient,    m_ambient4);
-                bgfx::setUniform(m_uCameraPos,  m_camPos4);
-
-                Material drawMat = cubeMat;
-                if (subset.materialIndex >= 0 && subset.materialIndex < (int)m_objMaterials.size()) {
-                    drawMat = m_objMaterials[subset.materialIndex];
-                }
-
-                drawMat.specParams[0] = m_shininess;
-                drawMat.specParams[1] = m_specIntensity;
-                drawMat.specColor[0] = drawMat.specColor[1] = drawMat.specColor[2] = 1.0f; drawMat.specColor[3]=0.0f;
-                ApplyMaterial(drawMat);
-
-                bgfx::setState(m_defaultState);
-                bgfx::submit(0, m_prog);
-            }
-        }
-        else if (m_cubeMesh.valid())
+        if (m_cubeMesh.valid())
         {
             SubmitMeshLit(m_cubeMesh, cubeMat, model);
         }
@@ -592,7 +479,7 @@ void Renderer::BeginFrame(Scene* scene)
         auto& meshRenderers = scene->GetMeshRenderers();
         for (const auto& [entity, mr] : meshRenderers)
         {
-            const Mesh* mesh = mr.mesh;
+            const Mesh* mesh = mr.mesh ? mr.mesh.get() : nullptr;
             if (!mesh || !mesh->valid())
             {
                 continue;
@@ -629,8 +516,17 @@ void Renderer::BeginFrame(Scene* scene)
             bgfx::setUniform(m_uCameraPos,  m_camPos4);
             bgfx::setUniform(m_uNormalMtx,  normalMtx);
 
-            const Material* material = mr.material ? mr.material : &m_defaultMaterial;
-            ApplyMaterial(*material);
+            std::shared_ptr<Material> fallback = m_resourceManager ? m_resourceManager->GetDefaultMaterial() : nullptr;
+            const Material* material = mr.material ? mr.material.get() : (fallback ? fallback.get() : nullptr);
+            if (!material)
+            {
+                continue;
+            }
+
+            Material temp = *material;
+            temp.specParams[0] = m_shininess;
+            temp.specParams[1] = m_specIntensity;
+            ApplyMaterial(temp);
 
             bgfx::setState(m_defaultState);
             bgfx::submit(0, m_prog);
@@ -671,6 +567,15 @@ const char* Renderer::GetBackendName() const
     case bgfx::RendererType::OpenGL:     return "OpenGL";
     case bgfx::RendererType::Noop:       return "Noop";
     default:                              return "Unknown";
+    }
+}
+
+void Renderer::SetResourceManager(resource::ResourceManager* manager)
+{
+    m_resourceManager = manager;
+    if (m_initialized && m_resourceManager)
+    {
+        m_resourceManager->Initialize();
     }
 }
 

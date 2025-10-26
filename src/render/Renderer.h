@@ -6,6 +6,7 @@
 #include "Material.h"
 
 class Scene;
+namespace resource { class ResourceManager; }
 
 class Renderer
 {
@@ -31,6 +32,8 @@ public:
 
     const char* GetBackendName() const;
 
+    void SetResourceManager(resource::ResourceManager* manager);
+
     // Debug toggles
     void ToggleWireframe();
     void ToggleVsync();
@@ -49,12 +52,6 @@ public:
 
     void SubmitMeshLit(const Mesh& mesh, const Material& material, const float model[16]);
 
-    const Mesh& GetCubeMesh() const { return m_cubeMesh; }
-    const Mesh& GetGroundPlaneMesh() const { return m_planeMesh; }
-
-    const Material& GetDefaultMaterial() const { return m_defaultMaterial; }
-    Material&       GetDefaultMaterial()       { return m_defaultMaterial; }
-
 private:
     // Shaders / programas
     bgfx::ShaderHandle LoadShaderFile(const char* path);
@@ -66,9 +63,6 @@ private:
 
     // Material helper
     void ApplyMaterial(const Material& mtl);
-
-    // Intentar cargar un OBJ (ruta absoluta o relativa)
-    bool TryLoadObj(const std::string& path);
 
 private:
     uint32_t    m_width  = 0;
@@ -99,8 +93,6 @@ private:
 
     // Textura + uniforms
     bgfx::UniformHandle m_uTexColor  = BGFX_INVALID_HANDLE;
-    bgfx::TextureHandle m_texChecker = BGFX_INVALID_HANDLE;
-
     bgfx::UniformHandle m_uLightDir   = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_uLightColor = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_uAmbient    = BGFX_INVALID_HANDLE;
@@ -112,8 +104,6 @@ private:
 
     bgfx::UniformHandle m_uBaseTint   = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_uUvScale    = BGFX_INVALID_HANDLE;
-
-    Material m_defaultMaterial;
 
     // Luz runtime (ya los tienes)
     float m_lightYaw = 0.f, m_lightPitch = 0.f;
@@ -129,9 +119,5 @@ private:
                             | BGFX_STATE_WRITE_Z
                             | BGFX_STATE_DEPTH_TEST_LESS;
 
-    // === OBJ cargado ===
-    Mesh                   m_objMesh;
-    std::vector<Material>  m_objMaterials;
-    std::vector<MeshSubset> m_objSubsets;
-    bool                   m_objLoaded = false;
+    resource::ResourceManager* m_resourceManager = nullptr;
 };

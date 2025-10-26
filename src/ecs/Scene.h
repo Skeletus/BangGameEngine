@@ -8,6 +8,7 @@
 #include <vector>
 #include <bitset>
 #include <functional>
+#include <memory>
 
 struct Mesh;
 struct Material;
@@ -66,5 +67,7 @@ private:
     EntityId                                       m_nextId = kInvalidEntity;
 };
 
-EntityId SetupEcsDemo(Scene& scene, const Mesh& cubeMesh, const Material& defaultMaterial);
+EntityId SetupEcsDemo(Scene& scene,
+                      const std::shared_ptr<Mesh>& cubeMesh,
+                      const std::shared_ptr<Material>& defaultMaterial);
 

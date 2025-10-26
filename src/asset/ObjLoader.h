@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <bgfx/bgfx.h>
+#include <functional>
+
 #include "../asset/Mesh.h"
 #include "../render/Material.h"
 
@@ -19,6 +21,8 @@ bool LoadObjToMesh(const std::string& objPath,
                    std::vector<Material>& outMaterials,
                    std::vector<MeshSubset>& outSubsets,
                    std::string* outLog = nullptr,
-                   bool flipV = true);
+                   bool flipV = true,
+                   uint32_t* outVertexCount = nullptr,
+                   std::function<bgfx::TextureHandle(const std::string&)> textureLoader = {});
 
 } // namespace asset

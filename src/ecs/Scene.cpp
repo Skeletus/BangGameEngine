@@ -318,7 +318,9 @@ void Scene::SetMaskBit(EntityId id, size_t bit, bool value)
     it->second.set(bit, value);
 }
 
-EntityId SetupEcsDemo(Scene& scene, const Mesh& cubeMesh, const Material& defaultMaterial)
+EntityId SetupEcsDemo(Scene& scene,
+                      const std::shared_ptr<Mesh>& cubeMesh,
+                      const std::shared_ptr<Material>& defaultMaterial)
 {
     EntityId entity = scene.CreateEntity();
     if (Transform* transform = scene.AddTransform(entity))
@@ -330,8 +332,8 @@ EntityId SetupEcsDemo(Scene& scene, const Mesh& cubeMesh, const Material& defaul
     }
     if (MeshRenderer* mr = scene.AddMeshRenderer(entity))
     {
-        mr->mesh = &cubeMesh;
-        mr->material = &defaultMaterial;
+        mr->mesh = cubeMesh;
+        mr->material = defaultMaterial;
     }
 
 #ifdef SANDBOXCITY_ECS_DEMO
@@ -351,8 +353,8 @@ EntityId SetupEcsDemo(Scene& scene, const Mesh& cubeMesh, const Material& defaul
         }
         if (MeshRenderer* render = scene.AddMeshRenderer(e))
         {
-            render->mesh = &cubeMesh;
-            render->material = &defaultMaterial;
+            render->mesh = cubeMesh;
+            render->material = defaultMaterial;
         }
         scene.SetParent(e, entity);
     }
