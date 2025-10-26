@@ -1,6 +1,11 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <cstddef>
+
+#include "../ecs/Scene.h"
+
+struct Material;
 
 class Window;
 class Renderer;
@@ -20,6 +25,16 @@ private:
     std::unique_ptr<Window>   m_window;
     std::unique_ptr<Renderer> m_renderer;
     std::unique_ptr<Camera>   m_camera;
+    std::unique_ptr<Material> m_defaultMaterial;
+
+    Scene     m_scene;
+    EntityId  m_demoEntity = kInvalidEntity;
+
+    size_t m_lastEntityCount        = 0;
+    size_t m_lastTransformCount     = 0;
+    size_t m_lastMeshRendererCount  = 0;
+    size_t m_lastDirtyBefore        = 0;
+    size_t m_lastDirtyAfter         = 0;
 
     bool   m_running = true;
     double m_accum   = 0.0;
