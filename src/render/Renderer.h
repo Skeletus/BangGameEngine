@@ -5,6 +5,8 @@
 #include "../asset/Mesh.h"
 #include "Material.h"
 
+class Scene;
+
 class Renderer
 {
 public:
@@ -19,7 +21,7 @@ public:
 
     void OnResize(uint32_t width, uint32_t height);
 
-    void BeginFrame();
+    void BeginFrame(Scene* scene = nullptr);
     void EndFrame();
 
     void SetView(const float view[16]);
@@ -49,6 +51,9 @@ public:
 
     const Mesh& GetCubeMesh() const { return m_cubeMesh; }
     const Mesh& GetGroundPlaneMesh() const { return m_planeMesh; }
+
+    const Material& GetDefaultMaterial() const { return m_defaultMaterial; }
+    Material&       GetDefaultMaterial()       { return m_defaultMaterial; }
 
 private:
     // Shaders / programas
@@ -107,6 +112,8 @@ private:
 
     bgfx::UniformHandle m_uBaseTint   = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_uUvScale    = BGFX_INVALID_HANDLE;
+
+    Material m_defaultMaterial;
 
     // Luz runtime (ya los tienes)
     float m_lightYaw = 0.f, m_lightPitch = 0.f;

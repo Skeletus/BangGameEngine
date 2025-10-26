@@ -3,9 +3,7 @@
 #include "../window/Window.h"
 #include "../render/Renderer.h"
 #include "../camera/Camera.h"
-#include "../render/Material.h"
 #include "../ecs/TransformSystem.h"
-#include "../ecs/RenderSystem.h"
 #include "../ecs/Scene.h"
 
 #include <cstdio>
@@ -23,11 +21,7 @@ Application::Application() {
     m_renderer = std::make_unique<Renderer>();
     m_renderer->Init(m_window->GetNativeWindowHandle(), m_window->GetWidth(), m_window->GetHeight());
 
-    m_defaultMaterial = std::make_unique<Material>();
-    m_defaultMaterial->reset();
-    m_defaultMaterial->specParams[0] = m_renderer->GetShininess();
-    m_defaultMaterial->specParams[1] = m_renderer->GetSpecIntensity();
-    m_demoEntity = SetupEcsDemo(m_scene, m_renderer->GetCubeMesh(), *m_defaultMaterial);
+    m_demoEntity = SetupEcsDemo(m_scene, m_renderer->GetCubeMesh(), m_renderer->GetDefaultMaterial());
 
     m_camera = std::make_unique<Camera>();
     m_window->SetCursorLocked(true); // captura ratón para mirar
@@ -43,11 +37,6 @@ Application::Application() {
 }
 
 Application::~Application() {
-    if (m_defaultMaterial)
-    {
-        m_defaultMaterial->destroy();
-        m_defaultMaterial.reset();
-    }
     if (m_renderer) m_renderer->Shutdown(); // <- extra seguro
     m_renderer.reset();
     m_window.reset();
@@ -216,7 +205,6 @@ void Application::Render() {
     }
     if (!m_renderer) return;
 
-    m_renderer->BeginFrame();
-    RenderSystem::Render(m_scene, *m_renderer);
+    m_renderer->BeginFrame(&m_scene);
     m_renderer->EndFrame();
 }
