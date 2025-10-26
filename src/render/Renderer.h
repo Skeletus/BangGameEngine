@@ -42,6 +42,14 @@ public:
     void AdjustSpecIntensity(float delta);
     void AdjustShininess(float delta);
 
+    float GetShininess() const { return m_shininess; }
+    float GetSpecIntensity() const { return m_specIntensity; }
+
+    void SubmitMeshLit(const Mesh& mesh, const Material& material, const float model[16]);
+
+    const Mesh& GetCubeMesh() const { return m_cubeMesh; }
+    const Mesh& GetGroundPlaneMesh() const { return m_planeMesh; }
+
 private:
     // Shaders / programas
     bgfx::ShaderHandle LoadShaderFile(const char* path);
@@ -79,12 +87,10 @@ private:
     bgfx::ProgramHandle m_prog = BGFX_INVALID_HANDLE;
 
     // Recursos: cubo
-    bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
-    bgfx::IndexBufferHandle  m_ibh = BGFX_INVALID_HANDLE;
+    Mesh m_cubeMesh;
 
     // Recursos: plano
-    bgfx::VertexBufferHandle m_planeVbh = BGFX_INVALID_HANDLE;
-    bgfx::IndexBufferHandle  m_planeIbh = BGFX_INVALID_HANDLE;
+    Mesh m_planeMesh;
 
     // Textura + uniforms
     bgfx::UniformHandle m_uTexColor  = BGFX_INVALID_HANDLE;
@@ -106,6 +112,15 @@ private:
     float m_lightYaw = 0.f, m_lightPitch = 0.f;
     float m_ambient = 0.5f, m_specIntensity = 0.35f, m_shininess = 32.f;
     float m_lightColor3[3] = {1,1,1};
+
+    float m_lightDir4[4]  = {0,0,0,0};
+    float m_lightColor4[4]= {1,1,1,0};
+    float m_ambient4[4]   = {0,0,0,0};
+    float m_camPos4[4]    = {0,0,0,0};
+    uint64_t m_defaultState = BGFX_STATE_WRITE_RGB
+                            | BGFX_STATE_WRITE_A
+                            | BGFX_STATE_WRITE_Z
+                            | BGFX_STATE_DEPTH_TEST_LESS;
 
     // === OBJ cargado ===
     Mesh                   m_objMesh;

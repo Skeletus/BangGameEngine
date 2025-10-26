@@ -268,10 +268,8 @@ void Renderer::Shutdown()
     if (!m_initialized) return;
 
     if (bgfx::isValid(m_prog))       bgfx::destroy(m_prog);
-    if (bgfx::isValid(m_vbh))        bgfx::destroy(m_vbh);
-    if (bgfx::isValid(m_ibh))        bgfx::destroy(m_ibh);
-    if (bgfx::isValid(m_planeVbh))   bgfx::destroy(m_planeVbh);
-    if (bgfx::isValid(m_planeIbh))   bgfx::destroy(m_planeIbh);
+    m_cubeMesh.destroy();
+    m_planeMesh.destroy();
     if (bgfx::isValid(m_uTexColor))  bgfx::destroy(m_uTexColor);
     if (bgfx::isValid(m_texChecker)) bgfx::destroy(m_texChecker);
 
@@ -300,10 +298,6 @@ void Renderer::Shutdown()
     bgfx::shutdown();
 
     m_prog        = BGFX_INVALID_HANDLE;
-    m_vbh         = BGFX_INVALID_HANDLE;
-    m_ibh         = BGFX_INVALID_HANDLE;
-    m_planeVbh    = BGFX_INVALID_HANDLE;
-    m_planeIbh    = BGFX_INVALID_HANDLE;
     m_uTexColor   = BGFX_INVALID_HANDLE;
     m_texChecker  = BGFX_INVALID_HANDLE;
     m_uLightDir   = BGFX_INVALID_HANDLE;
@@ -373,6 +367,48 @@ void Renderer::ApplyMaterial(const Material& m)
     bgfx::setUniform(m_uSpecColor,  m.specColor);
 }
 
+void Renderer::SubmitMeshLit(const Mesh& mesh, const Material& material, const float model[16])
+{
+    if (!m_initialized || m_type == bgfx::RendererType::Noop)
+    {
+        return;
+    }
+
+    if (!bgfx::isValid(m_prog) || !mesh.valid())
+    {
+        return;
+    }
+
+    bgfx::setTransform(model);
+    bgfx::setVertexBuffer(0, mesh.vbh);
+    bgfx::setIndexBuffer(mesh.ibh, 0, mesh.indexCount);
+
+    float invModel[16];
+    float normalMtx[16];
+    if (!bx::mtxInverse(invModel, model))
+    {
+        bx::mtxIdentity(normalMtx);
+    }
+    else
+    {
+        bx::mtxTranspose(normalMtx, invModel);
+    }
+
+    bgfx::setUniform(m_uLightDir,   m_lightDir4);
+    bgfx::setUniform(m_uLightColor, m_lightColor4);
+    bgfx::setUniform(m_uAmbient,    m_ambient4);
+    bgfx::setUniform(m_uCameraPos,  m_camPos4);
+    bgfx::setUniform(m_uNormalMtx,  normalMtx);
+
+    Material runtimeMaterial = material;
+    runtimeMaterial.specParams[0] = m_shininess;
+    runtimeMaterial.specParams[1] = m_specIntensity;
+    ApplyMaterial(runtimeMaterial);
+
+    bgfx::setState(m_defaultState);
+    bgfx::submit(0, m_prog);
+}
+
 // === OBJ loader (intento) ===
 bool Renderer::TryLoadObj(const std::string& path)
 {
@@ -425,12 +461,25 @@ void Renderer::BeginFrame()
     const float sy = std::sin(m_lightYaw);
     const float cp = std::cos(m_lightPitch);
     const float sp = std::sin(m_lightPitch);
-    const float lightDirV[4] = { cy*cp, sp, sy*cp, 0.0f };
+    m_lightDir4[0] = cy * cp;
+    m_lightDir4[1] = sp;
+    m_lightDir4[2] = sy * cp;
+    m_lightDir4[3] = 0.0f;
 
-    // Uniforms comunes de luz/cámara
-    const float lightColor[4] = { m_lightColor3[0], m_lightColor3[1], m_lightColor3[2], 0.0f };
-    const float ambient[4]    = { m_ambient, m_ambient, m_ambient, 0.0f };
-    const float camPos[4]     = { m_camX, m_camY, m_camZ, 0.0f };
+    m_lightColor4[0] = m_lightColor3[0];
+    m_lightColor4[1] = m_lightColor3[1];
+    m_lightColor4[2] = m_lightColor3[2];
+    m_lightColor4[3] = 0.0f;
+
+    m_ambient4[0] = m_ambient;
+    m_ambient4[1] = m_ambient;
+    m_ambient4[2] = m_ambient;
+    m_ambient4[3] = 0.0f;
+
+    m_camPos4[0] = m_camX;
+    m_camPos4[1] = m_camY;
+    m_camPos4[2] = m_camZ;
+    m_camPos4[3] = 0.0f;
 
     // HUD
     bgfx::dbgTextClear();
@@ -444,13 +493,8 @@ void Renderer::BeginFrame()
         bx::toDeg(m_lightYaw), bx::toDeg(m_lightPitch), m_ambient, m_specIntensity, m_shininess);
     bgfx::dbgTextPrintf(0, 6, 0x08, "Arrow keys: rotate light | Z/X ambient -/+ | C/V spec -/+ | B/N shiny -/+ | R reset");
 
+#if defined(SANDBOXCITY_KEEP_LEGACY_DRAWS) && SANDBOXCITY_KEEP_LEGACY_DRAWS
     if (m_type != bgfx::RendererType::Noop && bgfx::isValid(m_prog)) {
-        const uint64_t state =  BGFX_STATE_WRITE_RGB
-                              | BGFX_STATE_WRITE_A
-                              | BGFX_STATE_WRITE_Z
-                              | BGFX_STATE_DEPTH_TEST_LESS;
-
-        // Construye materiales por draw (usan los parámetros runtime)
         Material planeMat{};
         planeMat.albedo = m_texChecker;
         planeMat.baseTint[0]=planeMat.baseTint[1]=planeMat.baseTint[2]=1.0f; planeMat.baseTint[3]=1.0f;
@@ -459,94 +503,66 @@ void Renderer::BeginFrame()
         planeMat.specParams[1] = m_specIntensity;
         planeMat.specColor[0] = planeMat.specColor[1] = planeMat.specColor[2] = 1.0f; planeMat.specColor[3]=0.0f;
 
-        Material cubeMat = planeMat; // mismo material base por ahora
+        Material cubeMat = planeMat;
 
-        // === PLANO ===
-        {
-            float model[16]; bx::mtxSRT(model, 1,1,1, 0,0,0, 0,0,0);
-            float invModel[16], normalMtx[16];
-            bx::mtxInverse(invModel, model);
-            bx::mtxTranspose(normalMtx, invModel);
-
-            bgfx::setTransform(model);
-            bgfx::setVertexBuffer(0, m_planeVbh);
-            bgfx::setIndexBuffer(m_planeIbh);
-
-            // Iluminación común
-            bgfx::setUniform(m_uLightDir,   lightDirV);
-            bgfx::setUniform(m_uLightColor, lightColor);
-            bgfx::setUniform(m_uAmbient,    ambient);
-            bgfx::setUniform(m_uCameraPos,  camPos);
-            bgfx::setUniform(m_uNormalMtx,  normalMtx);
-
-            // Material v1
-            ApplyMaterial(planeMat);
-
-            bgfx::setState(state);
-            bgfx::submit(0, m_prog);
-        }
-
-        // === OBJ o CUBO ===
+        if (m_planeMesh.valid())
         {
             float model[16];
-            const float t = (float)Time::ElapsedTime();
-            bx::mtxSRT(model, 1,1,1, 0,t,0,  0,1,-5);
+            bx::mtxSRT(model, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+            SubmitMeshLit(m_planeMesh, planeMat, model);
+        }
 
-            float invModel[16], normalMtx[16];
-            bx::mtxInverse(invModel, model);
-            bx::mtxTranspose(normalMtx, invModel);
+        float model[16];
+        const float t = (float)Time::ElapsedTime();
+        bx::mtxSRT(model, 1,1,1, 0,t,0,  0,1,-5);
 
-            if (m_objMesh.valid() && !m_objSubsets.empty()) {
-                for (const MeshSubset& subset : m_objSubsets) {
-                    if (subset.indexCount == 0) {
-                        continue;
-                    }
-
-                    bgfx::setTransform(model);
-                    bgfx::setUniform(m_uNormalMtx,  normalMtx);
-                    bgfx::setVertexBuffer(0, m_objMesh.vbh);
-                    bgfx::setIndexBuffer(m_objMesh.ibh, subset.startIndex, subset.indexCount);
-
-                    // Iluminación común
-                    bgfx::setUniform(m_uLightDir,   lightDirV);
-                    bgfx::setUniform(m_uLightColor, lightColor);
-                    bgfx::setUniform(m_uAmbient,    ambient);
-                    bgfx::setUniform(m_uCameraPos,  camPos);
-
-                    Material drawMat = cubeMat;
-                    if (subset.materialIndex >= 0 && subset.materialIndex < (int)m_objMaterials.size()) {
-                        drawMat = m_objMaterials[subset.materialIndex];
-                    }
-
-                    drawMat.specParams[0] = m_shininess;
-                    drawMat.specParams[1] = m_specIntensity;
-                    drawMat.specColor[0] = drawMat.specColor[1] = drawMat.specColor[2] = 1.0f; drawMat.specColor[3]=0.0f;
-
-                    ApplyMaterial(drawMat);
-
-                    bgfx::setState(state);
-                    bgfx::submit(0, m_prog);
-                }
-            } else
+        if (m_objMesh.valid() && !m_objSubsets.empty()) {
+            float invModel[16];
+            float normalMtx[16];
+            if (!bx::mtxInverse(invModel, model))
             {
+                bx::mtxIdentity(normalMtx);
+            }
+            else
+            {
+                bx::mtxTranspose(normalMtx, invModel);
+            }
+
+            for (const MeshSubset& subset : m_objSubsets) {
+                if (subset.indexCount == 0) {
+                    continue;
+                }
+
                 bgfx::setTransform(model);
                 bgfx::setUniform(m_uNormalMtx,  normalMtx);
-                bgfx::setUniform(m_uLightDir,   lightDirV);
-                bgfx::setUniform(m_uLightColor, lightColor);
-                bgfx::setUniform(m_uAmbient,    ambient);
-                bgfx::setUniform(m_uCameraPos,  camPos);
+                bgfx::setVertexBuffer(0, m_objMesh.vbh);
+                bgfx::setIndexBuffer(m_objMesh.ibh, subset.startIndex, subset.indexCount);
 
-                bgfx::setVertexBuffer(0, m_vbh);
-                bgfx::setIndexBuffer(m_ibh);
+                bgfx::setUniform(m_uLightDir,   m_lightDir4);
+                bgfx::setUniform(m_uLightColor, m_lightColor4);
+                bgfx::setUniform(m_uAmbient,    m_ambient4);
+                bgfx::setUniform(m_uCameraPos,  m_camPos4);
 
-                ApplyMaterial(cubeMat);
+                Material drawMat = cubeMat;
+                if (subset.materialIndex >= 0 && subset.materialIndex < (int)m_objMaterials.size()) {
+                    drawMat = m_objMaterials[subset.materialIndex];
+                }
 
-                bgfx::setState(state);
+                drawMat.specParams[0] = m_shininess;
+                drawMat.specParams[1] = m_specIntensity;
+                drawMat.specColor[0] = drawMat.specColor[1] = drawMat.specColor[2] = 1.0f; drawMat.specColor[3]=0.0f;
+                ApplyMaterial(drawMat);
+
+                bgfx::setState(m_defaultState);
                 bgfx::submit(0, m_prog);
             }
-            
+        }
+        else if (m_cubeMesh.valid())
+        {
+            SubmitMeshLit(m_cubeMesh, cubeMat, model);
         }
     }
+#endif
 }
 
 void Renderer::EndFrame()
@@ -666,8 +682,10 @@ void Renderer::CreateCubeGeometry()
         2,3,6,  3,7,6  // -Y
     };
 
-    m_vbh = bgfx::createVertexBuffer(bgfx::copy(verts, sizeof(verts)), m_layout);
-    m_ibh = bgfx::createIndexBuffer (bgfx::copy(indices, sizeof(indices)));
+    m_cubeMesh.destroy();
+    m_cubeMesh.vbh = bgfx::createVertexBuffer(bgfx::copy(verts, sizeof(verts)), m_layout);
+    m_cubeMesh.ibh = bgfx::createIndexBuffer (bgfx::copy(indices, sizeof(indices)));
+    m_cubeMesh.indexCount = static_cast<uint32_t>(sizeof(indices) / sizeof(indices[0]));
 }
 
 void Renderer::CreateGroundPlane(float halfSize, float uvTiling)
@@ -683,6 +701,8 @@ void Renderer::CreateGroundPlane(float halfSize, float uvTiling)
     };
     const uint16_t indices[] = { 0,1,2, 1,3,2 };
 
-    m_planeVbh = bgfx::createVertexBuffer(bgfx::copy(verts, sizeof(verts)), m_layout);
-    m_planeIbh = bgfx::createIndexBuffer (bgfx::copy(indices, sizeof(indices)));
+    m_planeMesh.destroy();
+    m_planeMesh.vbh = bgfx::createVertexBuffer(bgfx::copy(verts, sizeof(verts)), m_layout);
+    m_planeMesh.ibh = bgfx::createIndexBuffer (bgfx::copy(indices, sizeof(indices)));
+    m_planeMesh.indexCount = static_cast<uint32_t>(sizeof(indices) / sizeof(indices[0]));
 }

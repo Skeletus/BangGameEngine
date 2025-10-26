@@ -23,9 +23,20 @@ target_include_directories(SandboxCity PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_definitions(SandboxCity PRIVATE 
+target_compile_definitions(SandboxCity PRIVATE
   GLFW_EXPOSE_NATIVE_WIN32
 )
+
+option(SANDBOXCITY_KEEP_LEGACY_DRAWS "Mantener los draws directos previos" OFF)
+option(SANDBOXCITY_ECS_DEMO "Activar modo ECS demo con 200 entidades" OFF)
+
+if (SANDBOXCITY_KEEP_LEGACY_DRAWS)
+  target_compile_definitions(SandboxCity PRIVATE SANDBOXCITY_KEEP_LEGACY_DRAWS=1)
+endif()
+
+if (SANDBOXCITY_ECS_DEMO)
+  target_compile_definitions(SandboxCity PRIVATE SANDBOXCITY_ECS_DEMO=1)
+endif()
 
 # *** IMPORTANTE para bx con MSVC ***
 # *** IMPORTANTE para bx con MSVC ***

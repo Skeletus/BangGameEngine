@@ -3,6 +3,12 @@
 #include "../window/Window.h"
 #include "../render/Renderer.h"
 #include "../camera/Camera.h"
+#include "../render/Material.h"
+#include "../ecs/TransformSystem.h"
+#include "../ecs/RenderSystem.h"
+#include "../ecs/Scene.h"
+
+#include <cstdio>
 
 #include <stdexcept>
 #include <iostream>
@@ -16,6 +22,12 @@ Application::Application() {
     m_window = std::make_unique<Window>("SandboxCity - Initializing...", 1280, 720);
     m_renderer = std::make_unique<Renderer>();
     m_renderer->Init(m_window->GetNativeWindowHandle(), m_window->GetWidth(), m_window->GetHeight());
+
+    m_defaultMaterial = std::make_unique<Material>();
+    m_defaultMaterial->reset();
+    m_defaultMaterial->specParams[0] = m_renderer->GetShininess();
+    m_defaultMaterial->specParams[1] = m_renderer->GetSpecIntensity();
+    m_demoEntity = SetupEcsDemo(m_scene, m_renderer->GetCubeMesh(), *m_defaultMaterial);
 
     m_camera = std::make_unique<Camera>();
     m_window->SetCursorLocked(true); // captura ratón para mirar
@@ -31,6 +43,11 @@ Application::Application() {
 }
 
 Application::~Application() {
+    if (m_defaultMaterial)
+    {
+        m_defaultMaterial->destroy();
+        m_defaultMaterial.reset();
+    }
     if (m_renderer) m_renderer->Shutdown(); // <- extra seguro
     m_renderer.reset();
     m_window.reset();
@@ -68,6 +85,13 @@ void Application::Run() {
             m_window->SetTitle(title);
             std::cout << "[INFO] Renderer: " << (backend ? backend : "Unknown")
                       << " | FPS: " << fps << std::endl;
+            std::cout << "[ECS] Entities: " << m_lastEntityCount
+                      << " | Transforms: " << m_lastTransformCount
+                      << " | MeshRenderers: " << m_lastMeshRendererCount
+                      << " | Dirty (pre/post): " << m_lastDirtyBefore
+                      << " -> " << m_lastDirtyAfter
+                      << (m_lastDirtyAfter == 0 ? " [OK]" : " [WARN]")
+                      << std::endl;
             m_statusAccum = 0.0;
         }
 
@@ -159,6 +183,28 @@ void Application::Update(double dt) {
     float camX, camY, camZ;
     m_camera->GetPosition(camX, camY, camZ);
     m_renderer->SetCameraDebugInfo(camX, camY, camZ);
+
+    if (Transform* transform = m_scene.GetTransform(m_demoEntity))
+    {
+        const float rotationSpeed = bx::toRad(45.0f);
+        transform->rotationEuler.y += rotationSpeed * static_cast<float>(dt);
+        transform->MarkDirty();
+    }
+
+    m_lastDirtyBefore = m_scene.CountDirtyTransforms();
+    TransformSystem::Update(m_scene);
+    m_lastDirtyAfter = m_scene.CountDirtyTransforms();
+
+#ifdef SANDBOXCITY_ECS_DEMO
+    if (m_lastDirtyAfter != 0)
+    {
+        std::printf("[ECS] ALERTA: dirty tras Update = %zu\n", m_lastDirtyAfter);
+    }
+#endif
+
+    m_lastEntityCount       = m_scene.GetEntityCount();
+    m_lastTransformCount    = m_scene.GetTransformCount();
+    m_lastMeshRendererCount = m_scene.GetMeshRendererCount();
 }
 
 void Application::Render() {
@@ -168,6 +214,9 @@ void Application::Render() {
         m_camera->GetPosition(x, y, z);
         printf("[DEBUG] Cam pos: (%.2f, %.2f, %.2f)\n", x, y, z);
     }
+    if (!m_renderer) return;
+
     m_renderer->BeginFrame();
+    RenderSystem::Render(m_scene, *m_renderer);
     m_renderer->EndFrame();
 }
