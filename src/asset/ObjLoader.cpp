@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <filesystem>
 #include <cmath>
+#include <utility>
 
 #include <tiny_obj_loader.h>
 
@@ -53,7 +54,6 @@ bool LoadObjToMesh(const std::string& objPath,
                    bgfx::TextureHandle fallbackTex,
                    Mesh& outMesh,
                    std::vector<Material>& outMaterials,
-                   std::vector<MeshSubset>& outSubsets,
                    std::string* outLog,
                    bool flipV,
                    uint32_t* outVertexCount,
@@ -63,11 +63,12 @@ bool LoadObjToMesh(const std::string& objPath,
     if (outVertexCount) *outVertexCount = 0;
 
     outMesh.destroy();
+    outMesh.materials.clear();
     for (Material& m : outMaterials) {
         m.destroy();
     }
     outMaterials.clear();
-    outSubsets.clear();
+    outMesh.submeshes.clear();
 
     tinyobj::ObjReaderConfig cfg;
     cfg.triangulate = true;
@@ -192,6 +193,8 @@ bool LoadObjToMesh(const std::string& objPath,
 
     std::vector<uint16_t> indices;
     indices.reserve(totalIndexCount);
+    std::vector<Submesh> submeshes;
+    submeshes.reserve(materialOrder.size());
 
     for (int matId : materialOrder) {
         auto it = perMaterialIndices.find(matId);
@@ -199,7 +202,7 @@ bool LoadObjToMesh(const std::string& objPath,
             continue;
         }
 
-        MeshSubset subset;
+        Submesh subset;
         subset.startIndex = (uint32_t)indices.size();
         subset.indexCount = (uint32_t)it->second.size();
         subset.materialIndex = (int)outMaterials.size();
@@ -235,7 +238,7 @@ bool LoadObjToMesh(const std::string& objPath,
         }
 
         outMaterials.push_back(mat);
-        outSubsets.push_back(subset);
+        submeshes.push_back(subset);
 
         indices.insert(indices.end(), it->second.begin(), it->second.end());
     }
@@ -253,6 +256,7 @@ bool LoadObjToMesh(const std::string& objPath,
     outMesh.ibh = bgfx::createIndexBuffer (imem);
     outMesh.indexCount = (uint32_t)indices.size();
     outMesh.vertexCount = (uint32_t)vertices.size();
+    outMesh.submeshes = std::move(submeshes);
 
     if (outVertexCount) {
         *outVertexCount = (uint32_t)vertices.size();

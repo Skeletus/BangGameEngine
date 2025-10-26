@@ -35,7 +35,6 @@ struct MaterialEntry
 struct MeshEntry
 {
     std::shared_ptr<Mesh> mesh;
-    std::vector<MeshSubset> subsets;
     std::vector<std::shared_ptr<Material>> materials;
     size_t approxBytes = 0;
     std::string source;

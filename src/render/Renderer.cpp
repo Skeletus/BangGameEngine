@@ -501,37 +501,81 @@ void Renderer::BeginFrame(Scene* scene)
                 }
             }
 
-            bgfx::setTransform(transform->world);
-            bgfx::setVertexBuffer(0, mesh->vbh);
-            bgfx::setIndexBuffer(mesh->ibh, 0, mesh->indexCount);
-
             float invWorld[16];
             float normalMtx[16];
             bx::mtxInverse(invWorld, transform->world);
             bx::mtxTranspose(normalMtx, invWorld);
-
-            bgfx::setUniform(m_uLightDir,   m_lightDir4);
-            bgfx::setUniform(m_uLightColor, m_lightColor4);
-            bgfx::setUniform(m_uAmbient,    m_ambient4);
-            bgfx::setUniform(m_uCameraPos,  m_camPos4);
-            bgfx::setUniform(m_uNormalMtx,  normalMtx);
-
             std::shared_ptr<Material> fallback = m_resourceManager ? m_resourceManager->GetDefaultMaterial() : nullptr;
-            const Material* material = mr.material ? mr.material.get() : (fallback ? fallback.get() : nullptr);
-            if (!material)
+            const Material* overrideMat = mr.material ? mr.material.get() : nullptr;
+
+            const auto submitDraw = [&](const Material* material, uint32_t startIndex, uint32_t indexCount) -> bool
             {
+                if (!material || indexCount == 0)
+                {
+                    return false;
+                }
+
+                bgfx::setTransform(transform->world);
+                bgfx::setVertexBuffer(0, mesh->vbh);
+                bgfx::setIndexBuffer(mesh->ibh, startIndex, indexCount);
+
+                bgfx::setUniform(m_uLightDir,   m_lightDir4);
+                bgfx::setUniform(m_uLightColor, m_lightColor4);
+                bgfx::setUniform(m_uAmbient,    m_ambient4);
+                bgfx::setUniform(m_uCameraPos,  m_camPos4);
+                bgfx::setUniform(m_uNormalMtx,  normalMtx);
+
+                Material temp = *material;
+                temp.specParams[0] = m_shininess;
+                temp.specParams[1] = m_specIntensity;
+                ApplyMaterial(temp);
+
+                bgfx::setState(m_defaultState);
+                bgfx::submit(0, m_prog);
+                return true;
+            };
+
+            const auto& submeshes = mesh->submeshes;
+            if (submeshes.empty())
+            {
+                const Material* material = overrideMat;
+                if (!material && !mesh->materials.empty() && mesh->materials.front())
+                {
+                    material = mesh->materials.front().get();
+                }
+                if (!material && fallback)
+                {
+                    material = fallback.get();
+                }
+
+                if (submitDraw(material, 0, mesh->indexCount))
+                {
+                    ++drawCount;
+                }
                 continue;
             }
 
-            Material temp = *material;
-            temp.specParams[0] = m_shininess;
-            temp.specParams[1] = m_specIntensity;
-            ApplyMaterial(temp);
+            for (const Submesh& submesh : submeshes)
+            {
+                const Material* material = overrideMat;
+                if (!material && submesh.materialIndex >= 0 && submesh.materialIndex < (int)mesh->materials.size())
+                {
+                    const auto& meshMat = mesh->materials[submesh.materialIndex];
+                    if (meshMat)
+                    {
+                        material = meshMat.get();
+                    }
+                }
+                if (!material && fallback)
+                {
+                    material = fallback.get();
+                }
 
-            bgfx::setState(m_defaultState);
-            bgfx::submit(0, m_prog);
-
-            ++drawCount;
+                if (submitDraw(material, submesh.startIndex, submesh.indexCount))
+                {
+                    ++drawCount;
+                }
+            }
         }
     }
 

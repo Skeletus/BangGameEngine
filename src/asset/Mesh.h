@@ -1,8 +1,13 @@
 #pragma once
 #include <bgfx/bgfx.h>
-#include <cstdint>
 
-struct MeshSubset
+#include <cstdint>
+#include <memory>
+#include <vector>
+
+struct Material;
+
+struct Submesh
 {
     uint32_t startIndex = 0;
     uint32_t indexCount = 0;
@@ -14,6 +19,8 @@ struct Mesh {
     bgfx::IndexBufferHandle  ibh = BGFX_INVALID_HANDLE;
     uint32_t indexCount = 0;
     uint32_t vertexCount = 0;
+    std::vector<Submesh> submeshes;
+    std::vector<std::shared_ptr<Material>> materials;
 
     inline bool valid() const {
         return bgfx::isValid(vbh) && bgfx::isValid(ibh) && indexCount > 0;
@@ -25,5 +32,7 @@ struct Mesh {
         ibh = BGFX_INVALID_HANDLE;
         indexCount = 0;
         vertexCount = 0;
+        submeshes.clear();
+        materials.clear();
     }
 };

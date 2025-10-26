@@ -27,22 +27,13 @@ Application::Application() {
     m_renderer->SetResourceManager(m_resourceManager.get());
 
     std::shared_ptr<Mesh> demoMesh;
-    std::shared_ptr<Material> demoMaterial;
     if (auto meshEntry = m_resourceManager->LoadMesh("models/demo.obj"))
     {
         demoMesh = meshEntry->mesh;
-        if (!meshEntry->materials.empty())
-        {
-            demoMaterial = meshEntry->materials.front();
-        }
-    }
-    if (!demoMaterial)
-    {
-        demoMaterial = m_resourceManager->GetDefaultMaterial();
     }
 
-    m_demoEntity = SetupEcsDemo(m_scene, demoMesh, demoMaterial);
-
+    m_demoEntity = SetupEcsDemo(m_scene, demoMesh, nullptr);
+    
     m_camera = std::make_unique<Camera>();
     m_window->SetCursorLocked(true); // captura ratón para mirar
 

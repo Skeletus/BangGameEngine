@@ -15,7 +15,6 @@ struct MeshLoadResult
 {
     Mesh mesh;
     std::vector<Material> materials;
-    std::vector<MeshSubset> subsets;
     uint32_t vertexCount = 0;
     size_t approxBytes = 0;
 };

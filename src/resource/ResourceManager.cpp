@@ -336,9 +336,8 @@ std::shared_ptr<MeshEntry> ResourceManager::LoadMesh(const std::string& relative
 
     auto entry = std::make_shared<MeshEntry>();
     auto meshPtr = std::shared_ptr<Mesh>(new Mesh(), MeshDeleter{});
-    *meshPtr = result.mesh;
+    *meshPtr = std::move(result.mesh);
     entry->mesh = meshPtr;
-    entry->subsets = result.subsets;
     entry->approxBytes = result.approxBytes;
     entry->source = normalized;
 
@@ -347,6 +346,7 @@ std::shared_ptr<MeshEntry> ResourceManager::LoadMesh(const std::string& relative
     {
         entry->materials.push_back(CreateMaterialFromData(mtl, normalized));
     }
+    meshPtr->materials = entry->materials;
 
     m_meshCache[normalized] = entry;
     LogCacheMiss(CacheType::Mesh, normalized);

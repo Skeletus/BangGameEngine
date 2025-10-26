@@ -1,6 +1,7 @@
 #include "MeshLoader.h"
 
 #include <cstdio>
+#include <utility>
 
 #include "../asset/ObjLoader.h"
 
@@ -16,11 +17,10 @@ bool LoadMeshFromObj(const std::string& absolutePath,
     outResult = MeshLoadResult{};
 
     std::vector<Material> materials;
-    std::vector<MeshSubset> subsets;
     Mesh mesh;
     uint32_t vertexCount = 0;
     std::string log;
-    bool ok = asset::LoadObjToMesh(absolutePath, layout, fallbackTex, mesh, materials, subsets,
+    bool ok = asset::LoadObjToMesh(absolutePath, layout, fallbackTex, mesh, materials,
                                    outLog ? outLog : &log, /*flipV=*/true, &vertexCount, textureLoader);
     if (!ok)
     {
@@ -31,13 +31,12 @@ bool LoadMeshFromObj(const std::string& absolutePath,
         return false;
     }
 
-    outResult.mesh = mesh;
+    outResult.mesh = std::move(mesh);
     outResult.materials = std::move(materials);
-    outResult.subsets = std::move(subsets);
-    outResult.vertexCount = vertexCount != 0 ? vertexCount : mesh.vertexCount;
+    outResult.vertexCount = vertexCount != 0 ? vertexCount : outResult.mesh.vertexCount;
 
     const uint32_t stride = layout.getStride();
-    const uint32_t indices = mesh.indexCount;
+    const uint32_t indices = outResult.mesh.indexCount;
     const uint32_t verts = outResult.vertexCount;
     outResult.approxBytes = static_cast<size_t>(verts) * stride + static_cast<size_t>(indices) * sizeof(uint16_t);
     return true;
