@@ -16,6 +16,7 @@ public:
     int  GetHeight() const { return m_height; }
 
     void* GetNativeWindowHandle() const; // HWND en Windows
+    GLFWwindow* GetGlfwHandle() const { return m_window; }
     void  SetTitle(const std::string& title);
 
     // === INPUT BÁSICO ===
