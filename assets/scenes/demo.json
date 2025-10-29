@@ -5,7 +5,7 @@
       "cj_torso": "models/torso.png",
       "cj_legs": "models/jeans.png",
       "cj_shoes": "models/sneaker.png",
-      "ground_checker": "textures/checker.png"
+      "ground_checker": "models/checker.png"
     },
     "materials": {
       "mat_head": {

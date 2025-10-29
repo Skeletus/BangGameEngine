@@ -46,6 +46,9 @@
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\resource\TextureLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\scene\SceneLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\window\Window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -105,12 +108,18 @@
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\resource\TextureLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\scene\SceneLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\window\Window.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="D:\Repositorios Github\SandboxCity\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="D:\Repositorios Github\vcpkg\installed\x64-windows\share\nlohmann_json\nlohmann_json.natvis" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
