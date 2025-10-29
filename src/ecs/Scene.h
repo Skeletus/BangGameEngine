@@ -5,6 +5,7 @@
 #include "MeshRenderer.h"
 
 #include <unordered_map>
+#include <string>
 #include <vector>
 #include <bitset>
 #include <functional>
@@ -46,6 +47,10 @@ public:
     const std::unordered_map<EntityId, MeshRenderer>& GetMeshRenderers() const;
     std::unordered_map<EntityId, MeshRenderer>&       GetMeshRenderers();
 
+    void SetLogicalLookup(std::unordered_map<std::string, EntityId> lookup);
+    EntityId FindEntityByLogicalId(const std::string& key) const;
+    const std::unordered_map<std::string, EntityId>& GetLogicalLookup() const { return m_logicalIds; }
+
     void ForEachRootTransform(const std::function<void(EntityId)>& fn) const;
 
     void MarkHierarchyDirty(EntityId id);
@@ -63,6 +68,7 @@ private:
     std::unordered_map<EntityId, MeshRenderer>     m_meshRenderers;
     std::unordered_map<EntityId, EntityId>         m_parents;
     std::unordered_map<EntityId, std::vector<EntityId>> m_children;
+    std::unordered_map<std::string, EntityId>      m_logicalIds;
     std::vector<EntityId>                          m_freeIds;
     EntityId                                       m_nextId = kInvalidEntity;
 };

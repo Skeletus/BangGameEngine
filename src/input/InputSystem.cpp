@@ -87,6 +87,62 @@ namespace
         }
         return InputSystem::AxisBinding::MouseAxis::DeltaY;
     }
+
+    InputSystem::AxisBinding::ScrollAxis ScrollAxisFromString(std::string_view name)
+    {
+        std::string upper = ToUpper(name);
+        if (upper == "SCROLLX" || upper == "DELTA X" || upper == "X")
+        {
+            return InputSystem::AxisBinding::ScrollAxis::X;
+        }
+        return InputSystem::AxisBinding::ScrollAxis::Y;
+    }
+
+    std::optional<int> MouseButtonFromString(std::string_view name)
+    {
+        std::string upper = ToUpper(name);
+
+        if (upper == "MOUSE_LEFT" || upper == "MOUSE1" || upper == "BUTTON1")
+        {
+            return GLFW_MOUSE_BUTTON_LEFT;
+        }
+        if (upper == "MOUSE_RIGHT" || upper == "MOUSE2" || upper == "BUTTON2")
+        {
+            return GLFW_MOUSE_BUTTON_RIGHT;
+        }
+        if (upper == "MOUSE_MIDDLE" || upper == "MOUSE3" || upper == "BUTTON3")
+        {
+            return GLFW_MOUSE_BUTTON_MIDDLE;
+        }
+
+        if (upper.rfind("MOUSE", 0) == 0)
+        {
+            std::string suffix = upper.substr(5);
+            if (!suffix.empty() && std::all_of(suffix.begin(), suffix.end(), ::isdigit))
+            {
+                int index = std::stoi(suffix);
+                if (index >= 1 && index <= GLFW_MOUSE_BUTTON_LAST + 1)
+                {
+                    return GLFW_MOUSE_BUTTON_1 + (index - 1);
+                }
+            }
+        }
+
+        if (upper.rfind("BUTTON", 0) == 0)
+        {
+            std::string suffix = upper.substr(6);
+            if (!suffix.empty() && std::all_of(suffix.begin(), suffix.end(), ::isdigit))
+            {
+                int index = std::stoi(suffix);
+                if (index >= 1 && index <= GLFW_MOUSE_BUTTON_LAST + 1)
+                {
+                    return GLFW_MOUSE_BUTTON_1 + (index - 1);
+                }
+            }
+        }
+
+        return std::nullopt;
+    }
 }
 
 InputSystem::InputSystem(Window* window)
@@ -199,6 +255,12 @@ void InputSystem::LoadBindings(const std::string& path)
                         entry.bindings.push_back(axisBinding);
                         //("[DEBUG_LOAD]     Added MOUSE binding: %s\n", mouseIt->get<std::string>().c_str());
                     }
+                    else if (auto scrollIt = binding.find("scroll"); scrollIt != binding.end() && scrollIt->is_string())
+                    {
+                        axisBinding.type = AxisBinding::Type::MouseScroll;
+                        axisBinding.scrollAxis = ScrollAxisFromString(*scrollIt);
+                        entry.bindings.push_back(axisBinding);
+                    }
                 }
             }
             m_axes.emplace(axisName, std::move(entry));
@@ -228,7 +290,8 @@ void InputSystem::LoadBindings(const std::string& path)
                         if (keyCode)
                         {
                             ActionBinding actionBinding;
-                            actionBinding.key = *keyCode;
+                            actionBinding.type = ActionBinding::Type::Key;
+                            actionBinding.code = *keyCode;
                             entry.bindings.push_back(actionBinding);
                             //("[DEBUG_LOAD]   Added action binding: %s\n", keyIt->get<std::string>().c_str());
                         }
@@ -236,6 +299,21 @@ void InputSystem::LoadBindings(const std::string& path)
                         {
                             //("[ERROR] Unknown key in action '%s': %s\n", actionName.c_str(), keyIt->get<std::string>().c_str());
                             std::cerr << "[Input] Unknown key in action '" << actionName << "': " << *keyIt << '\n';
+                        }
+                    }
+                    else if (auto mouseIt = binding.find("mouseButton"); mouseIt != binding.end() && mouseIt->is_string())
+                    {
+                        auto button = MouseButtonFromString(*mouseIt);
+                        if (button)
+                        {
+                            ActionBinding actionBinding;
+                            actionBinding.type = ActionBinding::Type::MouseButton;
+                            actionBinding.code = *button;
+                            entry.bindings.push_back(actionBinding);
+                        }
+                        else
+                        {
+                            std::cerr << "[Input] Unknown mouse button in action '" << actionName << "': " << *mouseIt << '\n';
                         }
                     }
                 }
@@ -314,6 +392,12 @@ InputSystem::ActionState InputSystem::GetAction(std::string_view name) const
     return it->second.state;
 }
 
+bool InputSystem::HasAxis(std::string_view name) const
+{
+    std::string key(name);
+    return m_axes.find(key) != m_axes.end();
+}
+
 void InputSystem::ResetMouseSmoothing()
 {
     m_mouseSmoothedX = 0.0f;
@@ -340,10 +424,21 @@ void InputSystem::UpdateActions()
         bool held = false;
         for (const auto& binding : entry.bindings)
         {
-            if (glfwGetKey(m_glfwWindow, binding.key) == GLFW_PRESS)
+            if (binding.type == ActionBinding::Type::Key)
             {
-                held = true;
-                break;
+                if (glfwGetKey(m_glfwWindow, binding.code) == GLFW_PRESS)
+                {
+                    held = true;
+                    break;
+                }
+            }
+            else if (binding.type == ActionBinding::Type::MouseButton)
+            {
+                if (glfwGetMouseButton(m_glfwWindow, binding.code) == GLFW_PRESS)
+                {
+                    held = true;
+                    break;
+                }
             }
         }
 
@@ -360,9 +455,12 @@ void InputSystem::UpdateAxes()
     
     float mouseDx = 0.0f;
     float mouseDy = 0.0f;
+    float scrollX = 0.0f;
+    float scrollY = 0.0f;
     if (m_window)
     {
         m_window->GetMouseDelta(mouseDx, mouseDy);
+        m_window->GetScrollDelta(scrollX, scrollY);
         //("[DEBUG_INPUT] Mouse delta from window: dx=%.2f, dy=%.2f\n", mouseDx, mouseDy);
     }
     else
@@ -428,6 +526,16 @@ void InputSystem::UpdateAxes()
                 {
                     value += scaledDy * binding.scale;
                     //("[DEBUG_INPUT]   Mouse DeltaY binding: scaledDy=%.2f, scale=%.2f, NEW_VALUE=%.2f\n", scaledDy, binding.scale, value);
+                }
+                break;
+            case AxisBinding::Type::MouseScroll:
+                if (binding.scrollAxis == AxisBinding::ScrollAxis::X)
+                {
+                    value += scrollX * binding.scale;
+                }
+                else
+                {
+                    value += scrollY * binding.scale;
                 }
                 break;
             }

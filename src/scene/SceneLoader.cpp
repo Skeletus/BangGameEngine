@@ -530,6 +530,8 @@ bool LoadSceneFromJson(const std::string& path,
         }
     }
 
+    ctx.scene.SetLogicalLookup(std::move(ctx.entityLookup));
+
     scene = std::move(newScene);
     std::printf("[SceneLoader] Escena cargada desde %s\n", resolved.string().c_str());
     return true;

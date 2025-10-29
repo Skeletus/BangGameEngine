@@ -53,6 +53,13 @@ void Camera::Move(float dx, float dy, float dz) {
     m_pos[2] += dx * right[2] + dy * up[2] + dz * fwd[2];
 }
 
+void Camera::SetYawPitch(float yaw, float pitch)
+{
+    m_yaw = yaw;
+    m_pitch = pitch;
+    clampPitch(m_pitch);
+}
+
 void Camera::GetView(float outView[16]) const {
     float fwd[3]; yawPitchToForward(m_yaw, m_pitch, fwd);
 

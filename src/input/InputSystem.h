@@ -30,15 +30,18 @@ public:
 
     float GetAxis(std::string_view name) const;
     ActionState GetAction(std::string_view name) const;
+    bool HasAxis(std::string_view name) const;
 
     struct AxisBinding
     {
-        enum class Type { Key, MouseDelta };
+        enum class Type { Key, MouseDelta, MouseScroll };
         enum class MouseAxis { DeltaX, DeltaY };
+        enum class ScrollAxis { X, Y };
 
         Type type = Type::Key;
         int key = 0;
         MouseAxis mouseAxis = MouseAxis::DeltaX;
+        ScrollAxis scrollAxis = ScrollAxis::Y;
         float scale = 1.0f;
     };
 
@@ -53,7 +56,9 @@ private:
 
     struct ActionBinding
     {
-        int key = 0;
+        enum class Type { Key, MouseButton };
+        Type type = Type::Key;
+        int code = 0;
     };
 
     struct ActionEntry

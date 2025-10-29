@@ -30,6 +30,7 @@ public:
 
     void SetCameraDebugInfo(float x, float y, float z);
     void SetInputDebugInfo(const std::string& text);
+    void SetCameraOrbitDebugInfo(const std::string& text);
 
     const char* GetBackendName() const;
 
@@ -82,6 +83,7 @@ private:
     float       m_proj[16]{};
     float       m_camX=0, m_camY=0, m_camZ=0;
     std::string m_inputDebugLine;
+    std::string m_orbitDebugLine;
 
     // Layout/Program
     bgfx::VertexLayout m_layout{};

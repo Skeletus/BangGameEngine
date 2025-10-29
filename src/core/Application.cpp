@@ -4,6 +4,7 @@
 #include "../render/Renderer.h"
 #include "../resource/ResourceManager.h"
 #include "../camera/Camera.h"
+#include "../camera/CameraOrbitController.h"
 #include "../ecs/TransformSystem.h"
 #include "../ecs/Scene.h"
 #include "../scene/SceneLoader.h"
@@ -34,7 +35,11 @@ Application::Application() {
     ReloadScene("inicial");
     
     m_camera = std::make_unique<Camera>();
-    m_window->SetCursorLocked(true); // captura ratón para mirar
+    m_window->SetCursorLocked(false);
+
+    m_cameraOrbit = std::make_unique<CameraOrbitController>(*m_camera, m_scene, m_input, *m_window, *m_renderer);
+    m_cameraOrbit->SetConfigPath("../../../assets/config/camera.json");
+    m_cameraOrbit->OnSceneReloaded();
 
     // Proyección inicial
     const float aspect = (float)m_window->GetWidth() / (float)m_window->GetHeight();
@@ -129,41 +134,13 @@ void Application::Run() {
 
 void Application::Update(double dt) {
     // === Input ===
-    const float moveSpeed = 5.0f;     // m/s
-    const float mouseSens = 1.0f;  // rad/pixel
-
-    // Movimiento
-    float moveForward = m_input.GetAxis("MoveForward");
-    float moveRight   = m_input.GetAxis("MoveRight");
-    float moveUp      = m_input.GetAxis("MoveUp");
-    
-    // Acumular sin normalizar aún
-    float dx = moveRight;
-    float dy = moveUp;
-    float dz = moveForward;
-
-    // Normalizar solo si hay movimiento
-    const float lenSq = dx*dx + dz*dz;
-    if (lenSq > 1e-6f) {
-        const float len = std::sqrt(lenSq);
-        dx /= len;
-        dz /= len;
+    if (m_cameraOrbit)
+    {
+        m_cameraOrbit->Update(dt);
     }
 
-    m_camera->Move(dx * moveSpeed * (float)dt,
-                   dy * moveSpeed * (float)dt,
-                   dz * moveSpeed * (float)dt);
-
-    // Mirar con ratón
-    float lookX = m_input.GetAxis("LookX");
-    float lookY = m_input.GetAxis("LookY");
-    m_camera->AddYawPitch(lookX * mouseSens, -lookY * mouseSens);
-
     // === Toggles existentes ===
-    static bool escLatch=false, f1Latch=false, vLatch=false;
-    if (m_window->IsKeyDown(GLFW_KEY_ESCAPE)) {
-        if (!escLatch) { escLatch = true; m_window->SetCursorLocked(false); }
-    } else escLatch = false;
+    static bool f1Latch=false, vLatch=false;
 
     if (m_window->IsKeyDown(GLFW_KEY_F1)) {
         if (!f1Latch) { f1Latch = true; m_renderer->ToggleWireframe(); }
@@ -280,6 +257,11 @@ void Application::ReloadScene(const char* reason)
     m_lastTransformCount    = m_scene.GetTransformCount();
     m_lastMeshRendererCount = m_scene.GetMeshRendererCount();
     PrintSceneSummary(reason);
+
+    if (m_cameraOrbit)
+    {
+        m_cameraOrbit->OnSceneReloaded();
+    }
 }
 
 void Application::PrintSceneSummary(const char* reason)

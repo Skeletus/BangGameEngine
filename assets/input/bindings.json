@@ -17,6 +17,11 @@
     ],
     "LookY": [
       { "mouse": "DeltaY", "scale": 1.0 }
+    ],
+    "Zoom": [
+      { "scroll": "ScrollY", "scale": -1.0 },
+      { "key": "Q", "scale": 1.0 },
+      { "key": "E", "scale": -1.0 }
     ]
   },
   "actions": {
@@ -25,6 +30,15 @@
     ],
     "Sprint": [
       { "key": "LEFT_SHIFT" }
+    ],
+    "OrbitLook": [
+      { "mouseButton": "MouseRight" }
+    ],
+    "OrbitReset": [
+      { "key": "R" }
+    ],
+    "OrbitCancel": [
+      { "key": "ESCAPE" }
     ]
   },
   "mouse": {
