@@ -32,7 +32,7 @@
       { "key": "LEFT_SHIFT" }
     ],
     "OrbitLook": [
-      { "mouseButton": "MouseRight" }
+      { "mouseButton": "MOUSE_RIGHT" }
     ],
     "OrbitReset": [
       { "key": "R" }

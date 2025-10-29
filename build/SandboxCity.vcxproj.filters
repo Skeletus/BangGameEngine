@@ -7,6 +7,9 @@
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\camera\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\camera\CameraOrbitController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\core\Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -64,6 +67,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\camera\Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\camera\CameraOrbitController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\core\Application.h">

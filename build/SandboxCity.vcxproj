@@ -383,6 +383,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\asset\ObjLoader.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\camera\Camera.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\camera\Camera.h" />
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\camera\CameraOrbitController.cpp" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\camera\CameraOrbitController.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\core\Application.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\core\Application.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\core\Time.cpp" />
