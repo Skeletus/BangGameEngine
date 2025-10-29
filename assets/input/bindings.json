@@ -1,18 +1,18 @@
 {
   "axes": {
     "MoveForward": [
-      { "key": "W", "scale": 1 },
-      { "key": "S", "scale": -1 }
+      { "key": "W", "scale": 1.0 },
+      { "key": "S", "scale": -1.0 }
     ],
     "MoveRight": [
-      { "key": "D", "scale": 1 },
-      { "key": "A", "scale": -1 }
+      { "key": "D", "scale": 1.0 },
+      { "key": "A", "scale": -1.0 }
     ],
     "LookX": [
-      { "mouse": "DeltaX", "scale": 1 }
+      { "mouse": "DeltaX", "scale": 1.0 }
     ],
     "LookY": [
-      { "mouse": "DeltaY", "scale": -1 }
+      { "mouse": "DeltaY", "scale": 1.0 }
     ]
   },
   "actions": {
@@ -24,7 +24,7 @@
     ]
   },
   "mouse": {
-    "sensitivity": 0.12,
+    "sensitivity": 0.005,
     "smoothtype": "ema",
     "alpha": 0.5
   }

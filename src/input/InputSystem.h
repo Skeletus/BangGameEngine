@@ -31,7 +31,6 @@ public:
     float GetAxis(std::string_view name) const;
     ActionState GetAction(std::string_view name) const;
 
-private:
     struct AxisBinding
     {
         enum class Type { Key, MouseDelta };
@@ -42,6 +41,9 @@ private:
         MouseAxis mouseAxis = MouseAxis::DeltaX;
         float scale = 1.0f;
     };
+
+private:
+    
 
     struct AxisEntry
     {

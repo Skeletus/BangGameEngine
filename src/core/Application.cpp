@@ -24,7 +24,7 @@ Application::Application() {
     m_renderer->Init(m_window->GetNativeWindowHandle(), m_window->GetWidth(), m_window->GetHeight());
 
     m_input.SetWindow(m_window.get());
-    m_input.LoadBindings("assets/input/bindings.json");
+    m_input.LoadBindings("../../../assets/input/bindings.json");
 
     m_resourceManager = std::make_unique<resource::ResourceManager>();
     m_resourceManager->Initialize();
@@ -130,21 +130,23 @@ void Application::Run() {
 void Application::Update(double dt) {
     // === Input ===
     const float moveSpeed = 5.0f;     // m/s
-    const float mouseSens = 0.0025f;  // rad/pixel
+    const float mouseSens = 1.0f;  // rad/pixel
 
     // Movimiento
-    float dx = 0.0f, dy = 0.0f, dz = 0.0f;
-    if (m_window->IsKeyDown(GLFW_KEY_W)) dz += 1.0f;
-    if (m_window->IsKeyDown(GLFW_KEY_S)) dz -= 1.0f;
-    if (m_window->IsKeyDown(GLFW_KEY_D)) dx += 1.0f;
-    if (m_window->IsKeyDown(GLFW_KEY_A)) dx -= 1.0f;
-    if (m_window->IsKeyDown(GLFW_KEY_SPACE))         dy += 1.0f;
-    if (m_window->IsKeyDown(GLFW_KEY_LEFT_CONTROL))  dy -= 1.0f;
+    float moveForward = m_input.GetAxis("MoveForward");
+    float moveRight   = m_input.GetAxis("MoveRight");
+    
+    // Acumular sin normalizar aún
+    float dx = moveRight;
+    float dy = 0.0f;
+    float dz = moveForward;
 
+    // Normalizar solo si hay movimiento
     const float lenSq = dx*dx + dz*dz;
-    if (lenSq > 0.0f) {
-        const float len = std::sqrt(std::max(lenSq, 1e-12f));
-        dx /= len; dz /= len;
+    if (lenSq > 1e-6f) {
+        const float len = std::sqrt(lenSq);
+        dx /= len;
+        dz /= len;
     }
 
     m_camera->Move(dx * moveSpeed * (float)dt,
@@ -152,9 +154,9 @@ void Application::Update(double dt) {
                    dz * moveSpeed * (float)dt);
 
     // Mirar con ratón
-    float mdx=0.0f, mdy=0.0f;
-    m_window->GetMouseDelta(mdx, mdy);
-    m_camera->AddYawPitch(mdx * mouseSens, -mdy * mouseSens);
+    float lookX = m_input.GetAxis("LookX");
+    float lookY = m_input.GetAxis("LookY");
+    m_camera->AddYawPitch(lookX * mouseSens, -lookY * mouseSens);
 
     // === Toggles existentes ===
     static bool escLatch=false, f1Latch=false, vLatch=false;

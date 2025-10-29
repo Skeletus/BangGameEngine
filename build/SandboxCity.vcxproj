@@ -397,6 +397,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\ecs\Transform.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\ecs\TransformSystem.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\ecs\TransformSystem.h" />
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\input\InputSystem.cpp" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\input\InputSystem.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\main.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\platform\Win32Native.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\render\Material.cpp" />
