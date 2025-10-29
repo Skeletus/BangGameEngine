@@ -261,6 +261,11 @@ void Renderer::SetCameraDebugInfo(float x, float y, float z)
     m_camX = x; m_camY = y; m_camZ = z;
 }
 
+void Renderer::SetInputDebugInfo(const std::string& text)
+{
+    m_inputDebugLine = text;
+}
+
 // Helpers
 static inline float clampf(float v, float a, float b) {
     return v < a ? a : (v > b ? b : v);
@@ -430,6 +435,10 @@ void Renderer::BeginFrame(Scene* scene)
     bgfx::dbgTextPrintf(0, 5, 0x0A, "Light yaw/pitch: %.1f/%.1f deg | Ambient: %.2f | SpecI: %.2f | Shiny: %.0f",
         bx::toDeg(m_lightYaw), bx::toDeg(m_lightPitch), m_ambient, m_specIntensity, m_shininess);
     bgfx::dbgTextPrintf(0, 6, 0x08, "Arrow keys: rotate light | Z/X ambient -/+ | C/V spec -/+ | B/N shiny -/+ | R reset");
+    if (!m_inputDebugLine.empty())
+    {
+        bgfx::dbgTextPrintf(0, 7, 0x0F, "%s", m_inputDebugLine.c_str());
+    }
 
 #if defined(SANDBOXCITY_KEEP_LEGACY_DRAWS) && SANDBOXCITY_KEEP_LEGACY_DRAWS
     if (m_type != bgfx::RendererType::Noop && bgfx::isValid(m_prog)) {

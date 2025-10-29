@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include "../ecs/Scene.h"
+#include "../input/InputSystem.h"
 
 struct Material;
 
@@ -29,6 +30,8 @@ private:
     std::unique_ptr<Renderer>                    m_renderer;
     std::unique_ptr<Camera>                      m_camera;
     std::unique_ptr<resource::ResourceManager>   m_resourceManager;
+
+    InputSystem m_input;
 
     Scene     m_scene;
     std::string m_scenePath;

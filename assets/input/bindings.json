@@ -1,0 +1,31 @@
+{
+  "axes": {
+    "MoveForward": [
+      { "key": "W", "scale": 1 },
+      { "key": "S", "scale": -1 }
+    ],
+    "MoveRight": [
+      { "key": "D", "scale": 1 },
+      { "key": "A", "scale": -1 }
+    ],
+    "LookX": [
+      { "mouse": "DeltaX", "scale": 1 }
+    ],
+    "LookY": [
+      { "mouse": "DeltaY", "scale": -1 }
+    ]
+  },
+  "actions": {
+    "Jump": [
+      { "key": "SPACE" }
+    ],
+    "Sprint": [
+      { "key": "LEFT_SHIFT" }
+    ]
+  },
+  "mouse": {
+    "sensitivity": 0.12,
+    "smoothtype": "ema",
+    "alpha": 0.5
+  }
+}

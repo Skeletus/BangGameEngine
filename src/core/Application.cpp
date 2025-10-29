@@ -23,6 +23,9 @@ Application::Application() {
     m_renderer = std::make_unique<Renderer>();
     m_renderer->Init(m_window->GetNativeWindowHandle(), m_window->GetWidth(), m_window->GetHeight());
 
+    m_input.SetWindow(m_window.get());
+    m_input.LoadBindings("assets/input/bindings.json");
+
     m_resourceManager = std::make_unique<resource::ResourceManager>();
     m_resourceManager->Initialize();
     m_renderer->SetResourceManager(m_resourceManager.get());
@@ -56,6 +59,9 @@ void Application::Run() {
 
     while (m_running && !m_window->ShouldClose()) {
         Time::Tick();
+
+        m_input.ReloadIfChanged();
+        m_input.Update(Time::DeltaTime());
 
         // Resize & proyección
         int w = m_window->GetWidth();
@@ -91,6 +97,27 @@ void Application::Run() {
                       << (m_lastDirtyAfter == 0 ? " [OK]" : " [WARN]")
                       << std::endl;
             m_statusAccum = 0.0;
+        }
+
+        if (m_renderer)
+        {
+            const float moveForward = m_input.GetAxis("MoveForward");
+            const float moveRight   = m_input.GetAxis("MoveRight");
+            const float lookX       = m_input.GetAxis("LookX");
+            const float lookY       = m_input.GetAxis("LookY");
+            const auto  jump        = m_input.GetAction("Jump");
+            const auto  sprint      = m_input.GetAction("Sprint");
+
+            char buffer[160];
+            std::snprintf(buffer, sizeof(buffer),
+                "MF/MR=%5.2f/%5.2f  LX/LY=%5.2f/%5.2f  Jump[P/H/R]=%d/%d/%d  Sprint[H]=%d",
+                moveForward, moveRight, lookX, lookY,
+                jump.pressed ? 1 : 0,
+                jump.held ? 1 : 0,
+                jump.released ? 1 : 0,
+                sprint.held ? 1 : 0);
+
+            m_renderer->SetInputDebugInfo(buffer);
         }
 
         Render();
