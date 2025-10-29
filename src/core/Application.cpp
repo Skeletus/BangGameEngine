@@ -135,10 +135,11 @@ void Application::Update(double dt) {
     // Movimiento
     float moveForward = m_input.GetAxis("MoveForward");
     float moveRight   = m_input.GetAxis("MoveRight");
+    float moveUp      = m_input.GetAxis("MoveUp");
     
     // Acumular sin normalizar aún
     float dx = moveRight;
-    float dy = 0.0f;
+    float dy = moveUp;
     float dz = moveForward;
 
     // Normalizar solo si hay movimiento

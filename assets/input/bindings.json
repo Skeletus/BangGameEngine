@@ -8,6 +8,10 @@
       { "key": "D", "scale": 1.0 },
       { "key": "A", "scale": -1.0 }
     ],
+    "MoveUp": [
+      { "key": "SPACE", "scale": 1.0 },
+      { "key": "LEFT_CONTROL", "scale": -1.0 }
+    ],
     "LookX": [
       { "mouse": "DeltaX", "scale": 1.0 }
     ],
