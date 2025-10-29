@@ -266,6 +266,11 @@ void Renderer::SetInputDebugInfo(const std::string& text)
     m_inputDebugLine = text;
 }
 
+void Renderer::SetCameraOrbitDebugInfo(const std::string& text)
+{
+    m_orbitDebugLine = text;
+}
+
 // Helpers
 static inline float clampf(float v, float a, float b) {
     return v < a ? a : (v > b ? b : v);
@@ -438,6 +443,10 @@ void Renderer::BeginFrame(Scene* scene)
     if (!m_inputDebugLine.empty())
     {
         bgfx::dbgTextPrintf(0, 7, 0x0F, "%s", m_inputDebugLine.c_str());
+    }
+    if (!m_orbitDebugLine.empty())
+    {
+        bgfx::dbgTextPrintf(0, 8, 0x0F, "%s", m_orbitDebugLine.c_str());
     }
 
 #if defined(SANDBOXCITY_KEEP_LEGACY_DRAWS) && SANDBOXCITY_KEEP_LEGACY_DRAWS

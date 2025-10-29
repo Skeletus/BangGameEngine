@@ -1,0 +1,11 @@
+{
+  "targetId": "cj",
+  "yawDeg": 90.0,
+  "pitchDeg": -20.0,
+  "distance": 6.0,
+  "sensLook": 1.0,
+  "sensZoom": 1.0,
+  "invertY": false,
+  "smoothing": true,
+  "smoothFactor": 8.0
+}

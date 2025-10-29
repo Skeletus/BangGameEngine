@@ -9,6 +9,7 @@ public:
     void SetPosition(float x, float y, float z);
     void AddYawPitch(float dyaw, float dpitch); // radianes
     void Move(float dx, float dy, float dz);    // en espacio local
+    void SetYawPitch(float yaw, float pitch);
 
     // Parámetros de proyección
     float GetFovYDeg() const { return m_fovYDeg; }

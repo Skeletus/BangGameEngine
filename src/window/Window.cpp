@@ -21,6 +21,7 @@ Window::Window(const std::string& title, int width, int height)
 
     glfwSetWindowUserPointer(m_window, this);
     glfwSetFramebufferSizeCallback(m_window, FramebufferSizeCallback);
+    glfwSetScrollCallback(m_window, ScrollCallback);
 
     // Inicializa delta de ratón
     glfwGetCursorPos(m_window, &m_lastX, &m_lastY);
@@ -74,10 +75,26 @@ void Window::GetMouseDelta(float& dx, float& dy) const {
     dy = static_cast<float>(m_dy);
 }
 
+void Window::GetScrollDelta(float& sx, float& sy) const {
+    sx = static_cast<float>(m_scrollX);
+    sy = static_cast<float>(m_scrollY);
+    m_scrollX = 0.0;
+    m_scrollY = 0.0;
+}
+
 void Window::FramebufferSizeCallback(GLFWwindow* win, int w, int h) {
     auto* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(win));
     if (self) {
         self->m_width  = (w > 0) ? w : 1;
         self->m_height = (h > 0) ? h : 1;
     }
+}
+
+void Window::ScrollCallback(GLFWwindow* win, double xoffset, double yoffset) {
+    auto* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(win));
+    if (!self) {
+        return;
+    }
+    self->m_scrollX += xoffset;
+    self->m_scrollY += yoffset;
 }

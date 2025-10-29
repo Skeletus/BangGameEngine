@@ -11,6 +11,7 @@ struct Material;
 class Window;
 class Renderer;
 class Camera;
+class CameraOrbitController;
 namespace resource { class ResourceManager; }
 
 class Application {
@@ -29,6 +30,7 @@ private:
     std::unique_ptr<Window>                      m_window;
     std::unique_ptr<Renderer>                    m_renderer;
     std::unique_ptr<Camera>                      m_camera;
+    std::unique_ptr<CameraOrbitController>       m_cameraOrbit;
     std::unique_ptr<resource::ResourceManager>   m_resourceManager;
 
     InputSystem m_input;

@@ -71,6 +71,7 @@ void Scene::DestroyEntity(EntityId id)
     m_entityMasks.erase(id);
 
     m_freeIds.push_back(id);
+    std::erase_if(m_logicalIds, [id](const auto& pair) { return pair.second == id; });
 }
 
 bool Scene::IsAlive(EntityId id) const
@@ -272,6 +273,21 @@ const std::unordered_map<EntityId, MeshRenderer>& Scene::GetMeshRenderers() cons
 std::unordered_map<EntityId, MeshRenderer>& Scene::GetMeshRenderers()
 {
     return m_meshRenderers;
+}
+
+void Scene::SetLogicalLookup(std::unordered_map<std::string, EntityId> lookup)
+{
+    m_logicalIds = std::move(lookup);
+}
+
+EntityId Scene::FindEntityByLogicalId(const std::string& key) const
+{
+    auto it = m_logicalIds.find(key);
+    if (it == m_logicalIds.end())
+    {
+        return kInvalidEntity;
+    }
+    return it->second;
 }
 
 void Scene::ForEachRootTransform(const std::function<void(EntityId)>& fn) const
