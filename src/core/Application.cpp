@@ -27,6 +27,9 @@ Application::Application() {
     m_input.SetWindow(m_window.get());
     m_input.LoadBindings("../../../assets/input/bindings.json");
 
+    m_physics.SetConfigPath("../../../assets/config/physics.json");
+    m_physics.Initialize();
+
     m_resourceManager = std::make_unique<resource::ResourceManager>();
     m_resourceManager->Initialize();
     m_renderer->SetResourceManager(m_resourceManager.get());
@@ -67,6 +70,11 @@ void Application::Run() {
 
         m_input.ReloadIfChanged();
         m_input.Update(Time::DeltaTime());
+
+        if (m_physics.ReloadConfigIfNeeded(m_scene))
+        {
+            m_fixedDt = m_physics.GetFixedStep();
+        }
 
         // Resize & proyección
         int w = m_window->GetWidth();
@@ -160,6 +168,7 @@ void Application::Update(double dt) {
             {
                 m_resourceManager->PrintStats();
             }
+            m_physics.LogStats();
         }
     }
     else
@@ -220,6 +229,8 @@ void Application::Update(double dt) {
     m_camera->GetPosition(camX, camY, camZ);
     m_renderer->SetCameraDebugInfo(camX, camY, camZ);
 
+    m_physics.Update(m_scene, *m_camera, m_input, dt);
+
     m_lastDirtyBefore = m_scene.CountDirtyTransforms();
     TransformSystem::Update(m_scene);
     m_lastDirtyAfter = m_scene.CountDirtyTransforms();
@@ -257,6 +268,10 @@ void Application::ReloadScene(const char* reason)
     m_lastTransformCount    = m_scene.GetTransformCount();
     m_lastMeshRendererCount = m_scene.GetMeshRendererCount();
     PrintSceneSummary(reason);
+
+    m_physics.OnSceneReloaded(m_scene);
+    m_physics.ReloadConfigIfNeeded(m_scene);
+    m_fixedDt = m_physics.GetFixedStep();
 
     if (m_cameraOrbit)
     {

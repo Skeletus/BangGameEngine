@@ -3,6 +3,7 @@
 #include "Entity.h"
 #include "Transform.h"
 #include "MeshRenderer.h"
+#include "../physics/PhysicsCharacter.h"
 
 #include <unordered_map>
 #include <string>
@@ -33,6 +34,11 @@ public:
     const MeshRenderer* GetMeshRenderer(EntityId id) const;
     void                RemoveMeshRenderer(EntityId id);
 
+    PhysicsCharacter*       AddPhysicsCharacter(EntityId id);
+    PhysicsCharacter*       GetPhysicsCharacter(EntityId id);
+    const PhysicsCharacter* GetPhysicsCharacter(EntityId id) const;
+    void                    RemovePhysicsCharacter(EntityId id);
+
     void     SetParent(EntityId child, EntityId parent);
     EntityId GetParent(EntityId child) const;
     const std::vector<EntityId>& GetChildren(EntityId parent) const;
@@ -40,12 +46,15 @@ public:
     size_t GetEntityCount() const;
     size_t GetTransformCount() const;
     size_t GetMeshRendererCount() const;
+    size_t GetPhysicsCharacterCount() const;
     size_t CountDirtyTransforms() const;
 
     const std::unordered_map<EntityId, Transform>& GetTransforms() const;
     std::unordered_map<EntityId, Transform>&       GetTransforms();
     const std::unordered_map<EntityId, MeshRenderer>& GetMeshRenderers() const;
     std::unordered_map<EntityId, MeshRenderer>&       GetMeshRenderers();
+    const std::unordered_map<EntityId, PhysicsCharacter>& GetPhysicsCharacters() const;
+    std::unordered_map<EntityId, PhysicsCharacter>&       GetPhysicsCharacters();
 
     void SetLogicalLookup(std::unordered_map<std::string, EntityId> lookup);
     EntityId FindEntityByLogicalId(const std::string& key) const;
@@ -66,6 +75,7 @@ private:
     std::unordered_map<EntityId, ComponentMask>    m_entityMasks;
     std::unordered_map<EntityId, Transform>        m_transforms;
     std::unordered_map<EntityId, MeshRenderer>     m_meshRenderers;
+    std::unordered_map<EntityId, PhysicsCharacter> m_physicsCharacters;
     std::unordered_map<EntityId, EntityId>         m_parents;
     std::unordered_map<EntityId, std::vector<EntityId>> m_children;
     std::unordered_map<std::string, EntityId>      m_logicalIds;

@@ -8,8 +8,9 @@
 
 namespace
 {
-    constexpr size_t kTransformBit    = 0;
-    constexpr size_t kMeshRendererBit = 1;
+    constexpr size_t kTransformBit        = 0;
+    constexpr size_t kMeshRendererBit     = 1;
+    constexpr size_t kPhysicsCharacterBit = 2;
 
     const std::vector<EntityId> kEmptyChildren{};
 }
@@ -45,6 +46,7 @@ void Scene::DestroyEntity(EntityId id)
 
     RemoveTransform(id);
     RemoveMeshRenderer(id);
+    RemovePhysicsCharacter(id);
 
     if (EntityId parent = GetParent(id); parent != kInvalidEntity)
     {
@@ -166,6 +168,51 @@ void Scene::RemoveMeshRenderer(EntityId id)
     }
 }
 
+PhysicsCharacter* Scene::AddPhysicsCharacter(EntityId id)
+{
+    if (!IsAlive(id))
+    {
+        return nullptr;
+    }
+
+    auto [it, inserted] = m_physicsCharacters.emplace(id, PhysicsCharacter{});
+    PhysicsCharacter& character = it->second;
+    character.entity = id;
+    character.dirty = true;
+    SetMaskBit(id, kPhysicsCharacterBit, true);
+    return &character;
+}
+
+PhysicsCharacter* Scene::GetPhysicsCharacter(EntityId id)
+{
+    auto it = m_physicsCharacters.find(id);
+    if (it == m_physicsCharacters.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+const PhysicsCharacter* Scene::GetPhysicsCharacter(EntityId id) const
+{
+    auto it = m_physicsCharacters.find(id);
+    if (it == m_physicsCharacters.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+void Scene::RemovePhysicsCharacter(EntityId id)
+{
+    auto it = m_physicsCharacters.find(id);
+    if (it != m_physicsCharacters.end())
+    {
+        m_physicsCharacters.erase(it);
+        SetMaskBit(id, kPhysicsCharacterBit, false);
+    }
+}
+
 void Scene::SetParent(EntityId child, EntityId parent)
 {
     if (!IsAlive(child))
@@ -242,6 +289,11 @@ size_t Scene::GetMeshRendererCount() const
     return m_meshRenderers.size();
 }
 
+size_t Scene::GetPhysicsCharacterCount() const
+{
+    return m_physicsCharacters.size();
+}
+
 size_t Scene::CountDirtyTransforms() const
 {
     size_t dirty = 0;
@@ -273,6 +325,16 @@ const std::unordered_map<EntityId, MeshRenderer>& Scene::GetMeshRenderers() cons
 std::unordered_map<EntityId, MeshRenderer>& Scene::GetMeshRenderers()
 {
     return m_meshRenderers;
+}
+
+const std::unordered_map<EntityId, PhysicsCharacter>& Scene::GetPhysicsCharacters() const
+{
+    return m_physicsCharacters;
+}
+
+std::unordered_map<EntityId, PhysicsCharacter>& Scene::GetPhysicsCharacters()
+{
+    return m_physicsCharacters;
 }
 
 void Scene::SetLogicalLookup(std::unordered_map<std::string, EntityId> lookup)

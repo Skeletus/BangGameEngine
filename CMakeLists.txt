@@ -10,6 +10,7 @@ find_package(bgfx CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(bullet3 CONFIG REQUIRED)
 
 # === Fuentes ===
 file(GLOB_RECURSE SANDBOXCITY_SOURCES
@@ -57,6 +58,7 @@ target_link_libraries(SandboxCity PRIVATE
   glfw
   tinyobjloader::tinyobjloader
   nlohmann_json::nlohmann_json
+  Bullet::Bullet
 )
 
 # Salida por configuración (VS multi-config)
