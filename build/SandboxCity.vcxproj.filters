@@ -34,6 +34,9 @@
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\BulletDebugDrawer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -102,7 +105,13 @@
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\input\InputSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\BulletDebugDrawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsCharacter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsDebugDraw.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.h">

@@ -402,7 +402,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\input\InputSystem.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\input\InputSystem.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\main.cpp" />
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\BulletDebugDrawer.cpp" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\BulletDebugDrawer.h" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsCharacter.h" />
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsDebugDraw.h" />
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.cpp" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.h" />
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\platform\Win32Native.h" />

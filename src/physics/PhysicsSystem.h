@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PhysicsCharacter.h"
+#include "PhysicsDebugDraw.h"
 
 #include <filesystem>
 #include <memory>
@@ -23,6 +24,7 @@ class btDefaultMotionState;
 class btRigidBody;
 class btPairCachingGhostObject;
 class btKinematicCharacterController;
+class BulletDebugDrawer;
 
 class PhysicsSystem
 {
@@ -38,6 +40,11 @@ public:
     void LogStats() const;
 
     double GetFixedStep() const { return m_config.fixedStep; }
+
+    void ToggleDebugOverlay();
+    void SetDebugOverlayEnabled(bool enabled);
+    bool IsDebugOverlayEnabled() const { return m_debugDrawEnabled; }
+    const PhysicsDebugLineBuffer& GetDebugLines() const;
 
 private:
     struct Config
@@ -57,6 +64,7 @@ private:
         std::unique_ptr<btCollisionShape> shape;
         std::unique_ptr<btPairCachingGhostObject> ghost;
         std::unique_ptr<btKinematicCharacterController> controller;
+        float visualOffsetY = 0.0f;
     };
 
     void EnsureWorld();
@@ -70,6 +78,7 @@ private:
     void HandleCharacterInput(Scene& scene, const Camera& camera, const InputSystem& input, double dt);
     void StepSimulation(double dt);
     void SyncCharactersFromPhysics(Scene& scene);
+    void CollectDebugLines();
 
 private:
     std::filesystem::path          m_configPath;
@@ -96,5 +105,9 @@ private:
     int    m_lastStepSubsteps = 0;
 
     bool m_forceCharacterRebuild = false;
+
+    std::unique_ptr<BulletDebugDrawer> m_debugDrawer;
+    mutable PhysicsDebugLineBuffer     m_emptyDebugLines;
+    bool                               m_debugDrawEnabled = false;
 };
 

@@ -154,6 +154,20 @@ void Application::Update(double dt) {
         if (!f1Latch) { f1Latch = true; m_renderer->ToggleWireframe(); }
     } else f1Latch = false;
 
+    static bool f3Latch = false;
+    if (m_window->IsKeyDown(GLFW_KEY_F3))
+    {
+        if (!f3Latch)
+        {
+            f3Latch = true;
+            m_physics.ToggleDebugOverlay();
+        }
+    }
+    else
+    {
+        f3Latch = false;
+    }
+
     if (m_window->IsKeyDown(GLFW_KEY_V)) {
         if (!vLatch) { vLatch = true; m_renderer->ToggleVsync(); }
     } else vLatch = false;
@@ -303,5 +317,9 @@ void Application::Render() {
     if (!m_renderer) return;
 
     m_renderer->BeginFrame(&m_scene);
+
+    const PhysicsDebugLineBuffer& debugLines = m_physics.GetDebugLines();
+    m_renderer->DrawDebugLines(debugLines);
+    
     m_renderer->EndFrame();
 }

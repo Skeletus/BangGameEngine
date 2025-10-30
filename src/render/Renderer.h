@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "../asset/Mesh.h"
+#include "../physics/PhysicsDebugDraw.h"
 #include "Material.h"
 
 class Scene;
@@ -53,6 +54,7 @@ public:
     float GetSpecIntensity() const { return m_specIntensity; }
 
     void SubmitMeshLit(const Mesh& mesh, const Material& material, const float model[16]);
+    void DrawDebugLines(const PhysicsDebugLineBuffer& lines);
 
 private:
     // Shaders / programas
@@ -88,6 +90,9 @@ private:
     // Layout/Program
     bgfx::VertexLayout m_layout{};
     bgfx::ProgramHandle m_prog = BGFX_INVALID_HANDLE;
+    bgfx::VertexLayout m_debugLineLayout{};
+    bgfx::ProgramHandle m_debugLineProgram = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle m_debugWhiteTexture = BGFX_INVALID_HANDLE;
 
     // Recursos: cubo
     Mesh m_cubeMesh;

@@ -4,10 +4,9 @@
   "stepHeight": 0.35,
   "maxSlopeDeg": 55.0,
   "capsule": {
-    "height": 1.6,
-    "radius": 0.35
+    "height": 2.6,
+    "radius": 0.65
   },
   "walkSpeed": 3.6,
-  "jumpImpulse": 26.5
+  "jumpImpulse": 8.5
 }
-

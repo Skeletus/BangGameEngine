@@ -177,12 +177,45 @@ void Renderer::Init(void* nwh, uint32_t width, uint32_t height)
         .add(bgfx::Attrib::TexCoord0,2, bgfx::AttribType::Float)
     .end();
 
+    m_debugLineLayout.begin()
+        .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Normal,   3, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
+        .add(bgfx::Attrib::TexCoord0,2, bgfx::AttribType::Float)
+    .end();
+
     CreateCubeGeometry();
     CreateGroundPlane();
 
     if (!LoadProgramDx11("vs_basic", "fs_basic")) {
         throw std::runtime_error("No se pudo cargar el programa DX11 (vs_basic/fs_basic).");
     }
+
+    {
+        std::string base = detectShaderBaseDx11();
+        std::filesystem::path vsPath = std::filesystem::path(base) / "vs_debugline.bin";
+        std::filesystem::path fsPath = std::filesystem::path(base) / "fs_debugline.bin";
+        if (!std::filesystem::exists(vsPath) || !std::filesystem::exists(fsPath))
+        {
+            throw std::runtime_error("No se encontraron shaders de debug (vs_debugline/fs_debugline).");
+        }
+
+        bgfx::ShaderHandle vsh = LoadShaderFile(vsPath.string().c_str());
+        bgfx::ShaderHandle fsh = LoadShaderFile(fsPath.string().c_str());
+        if (!bgfx::isValid(vsh) || !bgfx::isValid(fsh))
+        {
+            throw std::runtime_error("No se pudo crear shader handle para debug lines.");
+        }
+
+        m_debugLineProgram = bgfx::createProgram(vsh, fsh, true);
+        if (!bgfx::isValid(m_debugLineProgram))
+        {
+            throw std::runtime_error("No se pudo crear el programa de debug lines.");
+        }
+    }
+
+    const uint32_t white = 0xffffffffu;
+    m_debugWhiteTexture = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0, bgfx::copy(&white, sizeof(white)));
 
     // Uniforms
     m_uTexColor   = bgfx::createUniform("s_texColor",   bgfx::UniformType::Sampler);
@@ -212,7 +245,9 @@ void Renderer::Shutdown()
 {
     if (!m_initialized) return;
 
-    if (bgfx::isValid(m_prog))       bgfx::destroy(m_prog);
+    if (bgfx::isValid(m_prog))             bgfx::destroy(m_prog);
+    if (bgfx::isValid(m_debugLineProgram)) bgfx::destroy(m_debugLineProgram);
+    if (bgfx::isValid(m_debugWhiteTexture)) bgfx::destroy(m_debugWhiteTexture);
     m_cubeMesh.destroy();
     m_planeMesh.destroy();
     if (bgfx::isValid(m_uTexColor))  bgfx::destroy(m_uTexColor);
@@ -232,7 +267,9 @@ void Renderer::Shutdown()
     bgfx::renderFrame();
     bgfx::shutdown();
 
-    m_prog        = BGFX_INVALID_HANDLE;
+    m_prog              = BGFX_INVALID_HANDLE;
+    m_debugLineProgram  = BGFX_INVALID_HANDLE;
+    m_debugWhiteTexture = BGFX_INVALID_HANDLE;
     m_uTexColor   = BGFX_INVALID_HANDLE;
     m_uLightDir   = BGFX_INVALID_HANDLE;
     m_uLightColor = BGFX_INVALID_HANDLE;
@@ -383,6 +420,71 @@ void Renderer::SubmitMeshLit(const Mesh& mesh, const Material& material, const f
 
     bgfx::setState(m_defaultState);
     bgfx::submit(0, m_prog);
+}
+
+void Renderer::DrawDebugLines(const PhysicsDebugLineBuffer& lines)
+{
+    if (!m_initialized || lines.empty() || !bgfx::isValid(m_debugLineProgram))
+    {
+        return;
+    }
+
+    const uint32_t vertexCount = static_cast<uint32_t>(lines.size() * 2);
+
+    bgfx::TransientVertexBuffer tvb;
+    bgfx::allocTransientVertexBuffer(&tvb, vertexCount, m_debugLineLayout);
+
+    struct DebugVertex
+    {
+        float    x, y, z;
+        float    nx, ny, nz;
+        uint32_t abgr;
+        float    u, v;
+    };
+
+    DebugVertex* vertices = reinterpret_cast<DebugVertex*>(tvb.data);
+    uint32_t index = 0;
+    for (const PhysicsDebugLine& line : lines)
+    {
+        vertices[index++] = { line.from[0], line.from[1], line.from[2], 0.0f, 1.0f, 0.0f, line.abgr, 0.0f, 0.0f };
+        vertices[index++] = { line.to[0],   line.to[1],   line.to[2],   0.0f, 1.0f, 0.0f, line.abgr, 0.0f, 0.0f };
+    }
+
+    float model[16];
+    bx::mtxIdentity(model);
+    bgfx::setTransform(model);
+
+    float normalMtx[16];
+    bx::mtxIdentity(normalMtx);
+
+    bgfx::setUniform(m_uLightDir,   m_lightDir4);
+    const float zeroLight[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const float ambientWhite[4] = {1.0f, 1.0f, 1.0f, 0.0f};
+    bgfx::setUniform(m_uLightColor, zeroLight);
+    bgfx::setUniform(m_uAmbient,    ambientWhite);
+    bgfx::setUniform(m_uCameraPos,  m_camPos4);
+    bgfx::setUniform(m_uNormalMtx,  normalMtx);
+
+    Material mat{};
+    mat.specParams[0] = 1.0f;
+    mat.specParams[1] = 0.0f;
+    mat.specColor[0] = mat.specColor[1] = mat.specColor[2] = 0.0f;
+    mat.specColor[3] = 0.0f;
+    mat.uvScale[0] = mat.uvScale[1] = 0.0f;
+    mat.uvScale[2] = mat.uvScale[3] = 0.0f;
+    if (bgfx::isValid(m_debugWhiteTexture))
+    {
+        mat.albedo = m_debugWhiteTexture;
+    }
+    ApplyMaterial(mat);
+
+    bgfx::setVertexBuffer(0, &tvb);
+    const uint64_t state = BGFX_STATE_WRITE_RGB
+                         | BGFX_STATE_WRITE_Z
+                         | BGFX_STATE_PT_LINES
+                         | BGFX_STATE_DEPTH_TEST_LESS;
+    bgfx::setState(state);
+    bgfx::submit(0, m_debugLineProgram);
 }
 
 void Renderer::BeginFrame(Scene* scene)

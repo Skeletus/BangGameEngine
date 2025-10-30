@@ -1,6 +1,8 @@
 #include "PhysicsSystem.h"
 
 #include "PhysicsCharacter.h"
+#include "BulletDebugDrawer.h"
+#include "PhysicsDebugDraw.h"
 #include "../ecs/Scene.h"
 #include "../ecs/Transform.h"
 #include "../input/InputSystem.h"
@@ -14,6 +16,7 @@
 #include <bx/math.h>
 
 #include <chrono>
+#include <cstdint>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -96,6 +99,16 @@ void PhysicsSystem::InitializeWorld()
 
     m_ghostPairCallback = std::make_unique<btGhostPairCallback>();
     m_world->getBroadphase()->getOverlappingPairCache()->setInternalGhostPairCallback(m_ghostPairCallback.get());
+
+    if (!m_debugDrawer)
+    {
+        m_debugDrawer = std::make_unique<BulletDebugDrawer>();
+    }
+    if (m_debugDrawer)
+    {
+        m_debugDrawer->setDebugMode(m_debugDrawEnabled ? btIDebugDraw::DBG_DrawContactPoints : btIDebugDraw::DBG_NoDebug);
+        m_world->setDebugDrawer(m_debugDrawer.get());
+    }
 
     EnsureGround();
 }
@@ -346,7 +359,19 @@ void PhysicsSystem::EnsureCharacter(Scene& scene, EntityId entity, PhysicsCharac
 
     if (inserted || !runtime.controller)
     {
+        // ❌ QUITA TODO EL ESCALADO
+        // const float scale = transform->scale.y;
+        // const float scaledRadius = m_config.capsuleRadius * scale;
+        // const float scaledHeight = m_config.capsuleHeight * scale;
+        // const float scaledStepHeight = m_config.stepHeight * scale;
+        // const float scaledJumpImpulse = m_config.jumpImpulse * scale;
+
+        // ✅ USA LOS VALORES DIRECTOS DEL CONFIG
         runtime.shape = std::make_unique<btCapsuleShape>(m_config.capsuleRadius, m_config.capsuleHeight);
+
+        // ✅ Calcular y guardar el offset visual
+        const float capsuleTotalHeight = m_config.capsuleHeight + m_config.capsuleRadius * 2.0f;
+        runtime.visualOffsetY = -(capsuleTotalHeight * 0.5f);
 
         auto ghost = std::make_unique<btPairCachingGhostObject>();
         btTransform startTransform;
@@ -358,24 +383,31 @@ void PhysicsSystem::EnsureCharacter(Scene& scene, EntityId entity, PhysicsCharac
         ghost->setCollisionFlags(btCollisionObject::CF_CHARACTER_OBJECT);
         ghost->setActivationState(DISABLE_DEACTIVATION);
 
-        auto controller = std::make_unique<btKinematicCharacterController>(ghost.get(), static_cast<btConvexShape*>(runtime.shape.get()), m_config.stepHeight, btVector3(0.0f, 1.0f, 0.0f));
+        auto controller = std::make_unique<btKinematicCharacterController>(
+            ghost.get(), 
+            static_cast<btConvexShape*>(runtime.shape.get()), 
+            m_config.stepHeight,  // ✅ Sin escalar
+            btVector3(0.0f, 1.0f, 0.0f)
+        );
+        
         controller->setMaxSlope(btScalar(bx::toRad(m_config.maxSlopeDeg)));
         controller->setGravity(btVector3(0.0f, m_config.gravity, 0.0f));
-        controller->setJumpSpeed(m_config.jumpImpulse);
+        controller->setJumpSpeed(m_config.jumpImpulse);  // ✅ Sin escalar
         controller->setFallSpeed(std::fabs(m_config.gravity) * 3.0f);
         controller->setUseGhostSweepTest(true);
 
         m_world->addCollisionObject(ghost.get(), 
             btBroadphaseProxy::CharacterFilter, 
-            btBroadphaseProxy::AllFilter);  // Colisiona con TODO
+            btBroadphaseProxy::AllFilter);
 
         m_world->addAction(controller.get());
 
         runtime.ghost = std::move(ghost);
         runtime.controller = std::move(controller);
 
-        std::printf("[Physics] Character created at (%.2f, %.2f, %.2f)\n", 
-            transform->position.x, transform->position.y, transform->position.z);
+        std::printf("[Physics] Character created at (%.2f, %.2f, %.2f) radius=%.2f height=%.2f\n", 
+            transform->position.x, transform->position.y, transform->position.z,
+            m_config.capsuleRadius, m_config.capsuleHeight);
     }
 
     character.entity = entity;
@@ -450,16 +482,31 @@ void PhysicsSystem::StepSimulation(double dt)
 
     const btScalar fixedStep = btScalar(std::max(m_config.fixedStep, kMinStep));
 
+    if (m_debugDrawer)
+    {
+        m_debugDrawer->BeginFrame();
+    }
+
     auto start = std::chrono::high_resolution_clock::now();
     m_lastStepSubsteps = m_world->stepSimulation(static_cast<btScalar>(dt), 4, fixedStep);
     auto end = std::chrono::high_resolution_clock::now();
 
     m_lastStepDurationMs = std::chrono::duration<double, std::milli>(end - start).count();
     m_lastStepDt = dt;
+
+    if (m_debugDrawEnabled && m_debugDrawer)
+    {
+        m_world->debugDrawWorld();
+        CollectDebugLines();
+        std::printf("[PhysicsDebug] lines=%zu\n", m_debugDrawer->GetLines().size());
+    }
 }
 
 void PhysicsSystem::SyncCharactersFromPhysics(Scene& scene)
 {
+    // Offset para compensar la diferencia entre el tamaño del modelo (0.05) y el cápsula (1.0)
+    constexpr float kVisualOffsetY = -1.9f; // Mitad del radio del cápsula aproximadamente
+    
     for (auto& [entity, runtime] : m_characterRuntime)
     {
         PhysicsCharacter* character = scene.GetPhysicsCharacter(entity);
@@ -478,8 +525,9 @@ void PhysicsSystem::SyncCharactersFromPhysics(Scene& scene)
         const btVector3 origin = worldTransform.getOrigin();
         const btQuaternion rotation = worldTransform.getRotation();
 
+        // ✅ Aplicar offset visual para que el modelo pequeño esté centrado en el cápsula
         transform->position.x = static_cast<float>(origin.x());
-        transform->position.y = static_cast<float>(origin.y());
+        transform->position.y = static_cast<float>(origin.y()) + runtime.visualOffsetY;
         transform->position.z = static_cast<float>(origin.z());
 
         btScalar yaw, pitch, roll;
@@ -491,6 +539,61 @@ void PhysicsSystem::SyncCharactersFromPhysics(Scene& scene)
 
         character->dirty = false;
     }
+}
+
+void PhysicsSystem::CollectDebugLines()
+{
+    if (!m_world || !m_debugDrawer)
+    {
+        return;
+    }
+
+    constexpr uint32_t kStaticColor   = 0xff7f7f7fu;
+    constexpr uint32_t kDynamicColor  = 0xff00ffffu;
+
+    const btCollisionObjectArray& objects = m_world->getCollisionObjectArray();
+    for (int i = 0; i < objects.size(); ++i)
+    {
+        const btCollisionObject* object = objects[i];
+        if (!object)
+        {
+            continue;
+        }
+
+        uint32_t color = object->isStaticObject() ? kStaticColor : kDynamicColor;
+        m_debugDrawer->DrawCollisionObject(*object, color);
+    }
+}
+
+void PhysicsSystem::ToggleDebugOverlay()
+{
+    SetDebugOverlayEnabled(!m_debugDrawEnabled);
+}
+
+void PhysicsSystem::SetDebugOverlayEnabled(bool enabled)
+{
+    if (m_debugDrawEnabled == enabled)
+    {
+        return;
+    }
+
+    m_debugDrawEnabled = enabled;
+    if (m_debugDrawer)
+    {
+        m_debugDrawer->setDebugMode(enabled ? btIDebugDraw::DBG_DrawContactPoints : btIDebugDraw::DBG_NoDebug);
+    }
+    std::printf("[PhysicsDebug] overlay %s\n", enabled ? "ON" : "OFF");
+}
+
+const PhysicsDebugLineBuffer& PhysicsSystem::GetDebugLines() const
+{
+    if (m_debugDrawEnabled && m_debugDrawer)
+    {
+        return m_debugDrawer->GetLines();
+    }
+
+    m_emptyDebugLines.clear();
+    return m_emptyDebugLines;
 }
 
 void PhysicsSystem::Update(Scene& scene, const Camera& camera, const InputSystem& input, double dt)
