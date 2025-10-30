@@ -3,6 +3,7 @@
 #include "../ecs/Scene.h"
 #include "../ecs/Transform.h"
 #include "../ecs/MeshRenderer.h"
+#include "../ecs/PhysicsComponents.h"
 #include "../resource/ResourceManager.h"
 #include "../asset/Mesh.h"
 #include "../render/Material.h"
@@ -16,6 +17,7 @@
 #include <vector>
 #include <cstdio>
 #include <cstdlib>
+#include <cctype>
 
 using json = nlohmann::json;
 
@@ -107,6 +109,196 @@ static void RegisterEntityKey(LoadContext& ctx, EntityId entity, const std::stri
         std::printf("[SceneLoader] Aviso: identificador de entidad duplicado '%s', sobreescribiendo.\n", key.c_str());
         it->second = entity;
     }
+}
+
+static float ReadFloatField(const json& parent, const char* key, float fallback)
+{
+    auto it = parent.find(key);
+    if (it == parent.end())
+    {
+        return fallback;
+    }
+    if (it->is_number_float() || it->is_number_integer())
+    {
+        return it->get<float>();
+    }
+    if (it->is_string())
+    {
+        try
+        {
+            return std::stof(it->get<std::string>());
+        }
+        catch (...)
+        {
+        }
+    }
+    return fallback;
+}
+
+static float3 ReadVec3Field(const json& arr, const float3& fallback)
+{
+    float3 result = fallback;
+    if (!arr.is_array())
+    {
+        return result;
+    }
+    if (arr.size() > 0 && (arr[0].is_number_float() || arr[0].is_number_integer()))
+    {
+        result.x = arr[0].get<float>();
+    }
+    if (arr.size() > 1 && (arr[1].is_number_float() || arr[1].is_number_integer()))
+    {
+        result.y = arr[1].get<float>();
+    }
+    if (arr.size() > 2 && (arr[2].is_number_float() || arr[2].is_number_integer()))
+    {
+        result.z = arr[2].get<float>();
+    }
+    return result;
+}
+
+static uint32_t ReadUIntField(const json& parent, const char* key, uint32_t fallback)
+{
+    auto it = parent.find(key);
+    if (it == parent.end())
+    {
+        return fallback;
+    }
+    if (it->is_number_unsigned())
+    {
+        return it->get<uint32_t>();
+    }
+    if (it->is_number_integer())
+    {
+        const int64_t value = it->get<int64_t>();
+        return value < 0 ? 0u : static_cast<uint32_t>(value);
+    }
+    if (it->is_string())
+    {
+        const std::string text = it->get<std::string>();
+        try
+        {
+            size_t idx = 0;
+            return static_cast<uint32_t>(std::stoul(text, &idx, 0));
+        }
+        catch (...)
+        {
+        }
+    }
+    return fallback;
+}
+
+static ColliderShape ParseColliderShape(const json& parent, const char* key, const std::string& entityLabel)
+{
+    std::string shapeStr = parent.value(key, std::string("box"));
+    for (char& c : shapeStr) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (shapeStr == "box")
+    {
+        return ColliderShape::Box;
+    }
+    if (shapeStr == "capsule")
+    {
+        return ColliderShape::Capsule;
+    }
+    std::printf("[SceneLoader] Forma de collider '%s' desconocida en '%s', usando 'box'.\n",
+                shapeStr.c_str(), entityLabel.c_str());
+    return ColliderShape::Box;
+}
+
+static void ApplyColliderFromJson(const json& colliderJson,
+                                 LoadContext& ctx,
+                                 EntityId entity,
+                                 const std::string& entityLabel)
+{
+    Collider* collider = ctx.scene.AddCollider(entity);
+    if (!collider)
+    {
+        return;
+    }
+
+    collider->shape = ParseColliderShape(colliderJson, "shape", entityLabel);
+    if (collider->shape == ColliderShape::Box)
+    {
+        collider->size = ReadVec3Field(colliderJson.value("size", json::array()), collider->size);
+    }
+    else
+    {
+        const float radius = ReadFloatField(colliderJson, "radius", collider->size.x);
+        const float height = ReadFloatField(colliderJson, "height", collider->size.y * 2.0f);
+        collider->size.x = radius;
+        collider->size.y = height * 0.5f;
+    }
+    collider->dirty = true;
+}
+
+static void ApplyRigidBodyFromJson(const json& rbJson,
+                                   LoadContext& ctx,
+                                   EntityId entity,
+                                   const std::string& entityLabel)
+{
+    RigidBody* body = ctx.scene.AddRigidBody(entity);
+    if (!body)
+    {
+        return;
+    }
+
+    std::string typeStr = rbJson.value("type", std::string("Static"));
+    for (char& c : typeStr) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (typeStr == "dynamic")
+    {
+        body->type = RigidBodyType::Dynamic;
+    }
+    else if (typeStr == "kinematic")
+    {
+        body->type = RigidBodyType::Kinematic;
+    }
+    else
+    {
+        body->type = RigidBodyType::Static;
+    }
+
+    body->mass = body->type == RigidBodyType::Dynamic ? ReadFloatField(rbJson, "mass", 1.0f) : 0.0f;
+    body->friction = ReadFloatField(rbJson, "friction", body->friction);
+    body->restitution = ReadFloatField(rbJson, "restitution", body->restitution);
+    body->layer = ReadUIntField(rbJson, "layer", body->layer);
+    body->mask  = ReadUIntField(rbJson, "mask", body->mask);
+    body->dirty = true;
+
+    if (!ctx.scene.GetCollider(entity))
+    {
+        std::printf("[SceneLoader] Advertencia: rigidBody en '%s' sin 'collider'.\n", entityLabel.c_str());
+    }
+}
+
+static void ApplyTriggerFromJson(const json& triggerJson,
+                                 LoadContext& ctx,
+                                 EntityId entity,
+                                 const std::string& entityLabel)
+{
+    TriggerVolume* trigger = ctx.scene.AddTriggerVolume(entity);
+    if (!trigger)
+    {
+        return;
+    }
+
+    trigger->shape = ParseColliderShape(triggerJson, "shape", entityLabel);
+    if (trigger->shape == ColliderShape::Box)
+    {
+        trigger->size = ReadVec3Field(triggerJson.value("size", json::array()), trigger->size);
+    }
+    else
+    {
+        const float radius = ReadFloatField(triggerJson, "radius", trigger->size.x);
+        const float height = ReadFloatField(triggerJson, "height", trigger->size.y * 2.0f);
+        trigger->size.x = radius;
+        trigger->size.y = height * 0.5f;
+    }
+
+    trigger->layer = ReadUIntField(triggerJson, "layer", trigger->layer ? trigger->layer : (1u << 2));
+    trigger->mask  = ReadUIntField(triggerJson, "mask", trigger->mask);
+    trigger->oneShot = triggerJson.value("oneShot", trigger->oneShot);
+    trigger->active = triggerJson.value("active", true);
+    trigger->dirty = true;
 }
 
 static void LoadTexturesFromJson(const json& texturesJson, LoadContext& ctx)
@@ -417,6 +609,21 @@ static void ProcessEntityJson(const json& entityJson,
     if (auto mrIt = entityJson.find("meshRenderer"); mrIt != entityJson.end())
     {
         ApplyMeshRendererFromJson(*mrIt, ctx, entity, label);
+    }
+
+    if (auto colliderIt = entityJson.find("collider"); colliderIt != entityJson.end() && colliderIt->is_object())
+    {
+        ApplyColliderFromJson(*colliderIt, ctx, entity, label);
+    }
+
+    if (auto rbIt = entityJson.find("rigidBody"); rbIt != entityJson.end() && rbIt->is_object())
+    {
+        ApplyRigidBodyFromJson(*rbIt, ctx, entity, label);
+    }
+
+    if (auto triggerIt = entityJson.find("trigger"); triggerIt != entityJson.end() && triggerIt->is_object())
+    {
+        ApplyTriggerFromJson(*triggerIt, ctx, entity, label);
     }
 
     if (auto parentIt = entityJson.find("parent"); parentIt != entityJson.end() && parentIt->is_string())

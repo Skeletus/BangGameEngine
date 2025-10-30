@@ -11,6 +11,9 @@ namespace
     constexpr size_t kTransformBit        = 0;
     constexpr size_t kMeshRendererBit     = 1;
     constexpr size_t kPhysicsCharacterBit = 2;
+    constexpr size_t kColliderBit         = 3;
+    constexpr size_t kRigidBodyBit        = 4;
+    constexpr size_t kTriggerBit          = 5;
 
     const std::vector<EntityId> kEmptyChildren{};
 }
@@ -47,6 +50,9 @@ void Scene::DestroyEntity(EntityId id)
     RemoveTransform(id);
     RemoveMeshRenderer(id);
     RemovePhysicsCharacter(id);
+    RemoveTriggerVolume(id);
+    RemoveRigidBody(id);
+    RemoveCollider(id);
 
     if (EntityId parent = GetParent(id); parent != kInvalidEntity)
     {
@@ -165,6 +171,138 @@ void Scene::RemoveMeshRenderer(EntityId id)
     {
         m_meshRenderers.erase(it);
         SetMaskBit(id, kMeshRendererBit, false);
+    }
+}
+
+Collider* Scene::AddCollider(EntityId id)
+{
+    if (!IsAlive(id))
+    {
+        return nullptr;
+    }
+
+    auto [it, inserted] = m_colliders.emplace(id, Collider{});
+    Collider& collider = it->second;
+    collider.dirty = true;
+    SetMaskBit(id, kColliderBit, true);
+    return &collider;
+}
+
+Collider* Scene::GetCollider(EntityId id)
+{
+    auto it = m_colliders.find(id);
+    if (it == m_colliders.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+const Collider* Scene::GetCollider(EntityId id) const
+{
+    auto it = m_colliders.find(id);
+    if (it == m_colliders.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+void Scene::RemoveCollider(EntityId id)
+{
+    auto it = m_colliders.find(id);
+    if (it != m_colliders.end())
+    {
+        m_colliders.erase(it);
+        SetMaskBit(id, kColliderBit, false);
+    }
+}
+
+RigidBody* Scene::AddRigidBody(EntityId id)
+{
+    if (!IsAlive(id))
+    {
+        return nullptr;
+    }
+
+    auto [it, inserted] = m_rigidBodies.emplace(id, RigidBody{});
+    RigidBody& body = it->second;
+    body.dirty = true;
+    SetMaskBit(id, kRigidBodyBit, true);
+    return &body;
+}
+
+RigidBody* Scene::GetRigidBody(EntityId id)
+{
+    auto it = m_rigidBodies.find(id);
+    if (it == m_rigidBodies.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+const RigidBody* Scene::GetRigidBody(EntityId id) const
+{
+    auto it = m_rigidBodies.find(id);
+    if (it == m_rigidBodies.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+void Scene::RemoveRigidBody(EntityId id)
+{
+    auto it = m_rigidBodies.find(id);
+    if (it != m_rigidBodies.end())
+    {
+        m_rigidBodies.erase(it);
+        SetMaskBit(id, kRigidBodyBit, false);
+    }
+}
+
+TriggerVolume* Scene::AddTriggerVolume(EntityId id)
+{
+    if (!IsAlive(id))
+    {
+        return nullptr;
+    }
+
+    auto [it, inserted] = m_triggerVolumes.emplace(id, TriggerVolume{});
+    TriggerVolume& trigger = it->second;
+    trigger.dirty = true;
+    SetMaskBit(id, kTriggerBit, true);
+    return &trigger;
+}
+
+TriggerVolume* Scene::GetTriggerVolume(EntityId id)
+{
+    auto it = m_triggerVolumes.find(id);
+    if (it == m_triggerVolumes.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+const TriggerVolume* Scene::GetTriggerVolume(EntityId id) const
+{
+    auto it = m_triggerVolumes.find(id);
+    if (it == m_triggerVolumes.end())
+    {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+void Scene::RemoveTriggerVolume(EntityId id)
+{
+    auto it = m_triggerVolumes.find(id);
+    if (it != m_triggerVolumes.end())
+    {
+        m_triggerVolumes.erase(it);
+        SetMaskBit(id, kTriggerBit, false);
     }
 }
 
@@ -325,6 +463,36 @@ const std::unordered_map<EntityId, MeshRenderer>& Scene::GetMeshRenderers() cons
 std::unordered_map<EntityId, MeshRenderer>& Scene::GetMeshRenderers()
 {
     return m_meshRenderers;
+}
+
+const std::unordered_map<EntityId, Collider>& Scene::GetColliders() const
+{
+    return m_colliders;
+}
+
+std::unordered_map<EntityId, Collider>& Scene::GetColliders()
+{
+    return m_colliders;
+}
+
+const std::unordered_map<EntityId, RigidBody>& Scene::GetRigidBodies() const
+{
+    return m_rigidBodies;
+}
+
+std::unordered_map<EntityId, RigidBody>& Scene::GetRigidBodies()
+{
+    return m_rigidBodies;
+}
+
+const std::unordered_map<EntityId, TriggerVolume>& Scene::GetTriggerVolumes() const
+{
+    return m_triggerVolumes;
+}
+
+std::unordered_map<EntityId, TriggerVolume>& Scene::GetTriggerVolumes()
+{
+    return m_triggerVolumes;
 }
 
 const std::unordered_map<EntityId, PhysicsCharacter>& Scene::GetPhysicsCharacters() const

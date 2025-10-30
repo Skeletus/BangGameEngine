@@ -3,6 +3,7 @@
 #include "Entity.h"
 #include "Transform.h"
 #include "MeshRenderer.h"
+#include "PhysicsComponents.h"
 #include "../physics/PhysicsCharacter.h"
 
 #include <unordered_map>
@@ -34,6 +35,21 @@ public:
     const MeshRenderer* GetMeshRenderer(EntityId id) const;
     void                RemoveMeshRenderer(EntityId id);
 
+    Collider*       AddCollider(EntityId id);
+    Collider*       GetCollider(EntityId id);
+    const Collider* GetCollider(EntityId id) const;
+    void            RemoveCollider(EntityId id);
+
+    RigidBody*       AddRigidBody(EntityId id);
+    RigidBody*       GetRigidBody(EntityId id);
+    const RigidBody* GetRigidBody(EntityId id) const;
+    void             RemoveRigidBody(EntityId id);
+
+    TriggerVolume*       AddTriggerVolume(EntityId id);
+    TriggerVolume*       GetTriggerVolume(EntityId id);
+    const TriggerVolume* GetTriggerVolume(EntityId id) const;
+    void                 RemoveTriggerVolume(EntityId id);
+
     PhysicsCharacter*       AddPhysicsCharacter(EntityId id);
     PhysicsCharacter*       GetPhysicsCharacter(EntityId id);
     const PhysicsCharacter* GetPhysicsCharacter(EntityId id) const;
@@ -53,6 +69,12 @@ public:
     std::unordered_map<EntityId, Transform>&       GetTransforms();
     const std::unordered_map<EntityId, MeshRenderer>& GetMeshRenderers() const;
     std::unordered_map<EntityId, MeshRenderer>&       GetMeshRenderers();
+    const std::unordered_map<EntityId, Collider>& GetColliders() const;
+    std::unordered_map<EntityId, Collider>&       GetColliders();
+    const std::unordered_map<EntityId, RigidBody>& GetRigidBodies() const;
+    std::unordered_map<EntityId, RigidBody>&       GetRigidBodies();
+    const std::unordered_map<EntityId, TriggerVolume>& GetTriggerVolumes() const;
+    std::unordered_map<EntityId, TriggerVolume>&       GetTriggerVolumes();
     const std::unordered_map<EntityId, PhysicsCharacter>& GetPhysicsCharacters() const;
     std::unordered_map<EntityId, PhysicsCharacter>&       GetPhysicsCharacters();
 
@@ -75,6 +97,9 @@ private:
     std::unordered_map<EntityId, ComponentMask>    m_entityMasks;
     std::unordered_map<EntityId, Transform>        m_transforms;
     std::unordered_map<EntityId, MeshRenderer>     m_meshRenderers;
+    std::unordered_map<EntityId, Collider>         m_colliders;
+    std::unordered_map<EntityId, RigidBody>        m_rigidBodies;
+    std::unordered_map<EntityId, TriggerVolume>    m_triggerVolumes;
     std::unordered_map<EntityId, PhysicsCharacter> m_physicsCharacters;
     std::unordered_map<EntityId, EntityId>         m_parents;
     std::unordered_map<EntityId, std::vector<EntityId>> m_children;
