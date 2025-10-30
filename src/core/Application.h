@@ -5,6 +5,7 @@
 
 #include "../ecs/Scene.h"
 #include "../input/InputSystem.h"
+#include "../physics/PhysicsSystem.h"
 
 struct Material;
 
@@ -33,7 +34,8 @@ private:
     std::unique_ptr<CameraOrbitController>       m_cameraOrbit;
     std::unique_ptr<resource::ResourceManager>   m_resourceManager;
 
-    InputSystem m_input;
+    InputSystem   m_input;
+    PhysicsSystem m_physics;
 
     Scene     m_scene;
     std::string m_scenePath;

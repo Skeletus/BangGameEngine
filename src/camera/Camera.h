@@ -23,6 +23,9 @@ public:
         x = m_pos[0]; y = m_pos[1]; z = m_pos[2];
     }
 
+    float GetYaw() const { return m_yaw; }
+    float GetPitch() const { return m_pitch; }
+
 private:
     float m_pos[3];            // x,y,z
     float m_yaw;               // rad
