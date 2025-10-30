@@ -34,6 +34,9 @@
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\render\Material.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -97,6 +100,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\input\InputSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsCharacter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\platform\Win32Native.h">

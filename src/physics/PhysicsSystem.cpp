@@ -116,6 +116,7 @@ void PhysicsSystem::EnsureGround()
     m_groundBody->setRestitution(0.0f);
 
     m_world->addRigidBody(m_groundBody.get(), btBroadphaseProxy::StaticFilter, btBroadphaseProxy::AllFilter);
+    //std::printf("[Physics] Ground plane created at Y=0\n");
 }
 
 void PhysicsSystem::OnSceneReloaded(Scene& scene)
@@ -252,7 +253,7 @@ void PhysicsSystem::ApplyConfig(Scene& scene, const Config& newConfig)
     {
         if (runtime.controller)
         {
-            runtime.controller->setGravity(std::fabs(m_config.gravity));
+            runtime.controller->setGravity(btVector3(0.0f, m_config.gravity, 0.0f));
             runtime.controller->setMaxSlope(btScalar(bx::toRad(m_config.maxSlopeDeg)));
             runtime.controller->setJumpSpeed(m_config.jumpImpulse);
             runtime.controller->setFallSpeed(std::fabs(m_config.gravity) * 3.0f);
@@ -359,16 +360,22 @@ void PhysicsSystem::EnsureCharacter(Scene& scene, EntityId entity, PhysicsCharac
 
         auto controller = std::make_unique<btKinematicCharacterController>(ghost.get(), static_cast<btConvexShape*>(runtime.shape.get()), m_config.stepHeight, btVector3(0.0f, 1.0f, 0.0f));
         controller->setMaxSlope(btScalar(bx::toRad(m_config.maxSlopeDeg)));
-        controller->setGravity(std::fabs(m_config.gravity));
+        controller->setGravity(btVector3(0.0f, m_config.gravity, 0.0f));
         controller->setJumpSpeed(m_config.jumpImpulse);
         controller->setFallSpeed(std::fabs(m_config.gravity) * 3.0f);
         controller->setUseGhostSweepTest(true);
 
-        m_world->addCollisionObject(ghost.get(), btBroadphaseProxy::CharacterFilter, btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter);
+        m_world->addCollisionObject(ghost.get(), 
+            btBroadphaseProxy::CharacterFilter, 
+            btBroadphaseProxy::AllFilter);  // Colisiona con TODO
+
         m_world->addAction(controller.get());
 
         runtime.ghost = std::move(ghost);
         runtime.controller = std::move(controller);
+
+        std::printf("[Physics] Character created at (%.2f, %.2f, %.2f)\n", 
+            transform->position.x, transform->position.y, transform->position.z);
     }
 
     character.entity = entity;
@@ -391,8 +398,8 @@ void PhysicsSystem::HandleCharacterInput(Scene& scene, const Camera& camera, con
     const float yaw = camera.GetYaw();
     const float forwardX = std::cos(yaw);
     const float forwardZ = std::sin(yaw);
-    const float rightX = -forwardZ;
-    const float rightZ = forwardX;
+    const float rightX = forwardZ;
+    const float rightZ = -forwardX;
 
     const float desiredSpeedMultiplier = sprint.held ? kSprintMultiplier : 1.0f;
 
@@ -422,7 +429,14 @@ void PhysicsSystem::HandleCharacterInput(Scene& scene, const Camera& camera, con
 
         if (jump.pressed)
         {
-            runtime.controller->jump(btVector3(0.0f, character->jumpImpulse, 0.0f));
+            bool onGround = runtime.controller->onGround();
+            bool canJump = runtime.controller->canJump();
+            //std::printf("[Physics] Jump pressed - onGround=%d canJump=%d\n", onGround, canJump);
+            
+            if (onGround)
+            {
+                runtime.controller->jump();
+            }
         }
     }
 }

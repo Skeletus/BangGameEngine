@@ -610,7 +610,7 @@ void Renderer::BeginFrame(Scene* scene)
 
     if (drawCount > 0)
     {
-        std::printf("[Renderer] ECS render: %zu draws\n", drawCount);
+        //::printf("[Renderer] ECS render: %zu draws\n", drawCount);
     }
     else
     {
