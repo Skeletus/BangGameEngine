@@ -26,6 +26,8 @@ private:
     void Render();
     void ReloadScene(const char* reason);
     void PrintSceneSummary(const char* reason);
+    void OnTriggerEvent(const PhysicsSystem::TriggerEvent& evt);
+    std::string GetEntityLabel(EntityId id) const;
 
 private:
     std::unique_ptr<Window>                      m_window;
@@ -39,6 +41,9 @@ private:
 
     Scene     m_scene;
     std::string m_scenePath;
+
+    EntityId m_cjEntity = kInvalidEntity;
+    EntityId m_checkpointEntity = kInvalidEntity;
 
     size_t m_lastEntityCount        = 0;
     size_t m_lastTransformCount     = 0;

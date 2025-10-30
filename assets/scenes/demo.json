@@ -77,6 +77,32 @@
         "materialOverrides": {
           "0": "mat_ground"
         }
+      },
+      "collider": {
+        "shape": "box",
+        "size": [50.0, 1.0, 50.0]
+      },
+      "rigidBody": {
+        "type": "Static",
+        "layer": 1,
+        "mask": 4294967295,
+        "friction": 1.0
+      }
+    },
+    {
+      "id": "checkpoint",
+      "name": "Checkpoint",
+      "transform": {
+        "position": [5.0, 1.0, 5.0],
+        "rotationEuler": [0.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "trigger": {
+        "shape": "box",
+        "size": [1.5, 1.5, 1.5],
+        "layer": 4,
+        "mask": 4294967295,
+        "oneShot": false
       }
     }
   ]

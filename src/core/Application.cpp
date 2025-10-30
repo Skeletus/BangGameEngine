@@ -8,6 +8,7 @@
 #include "../ecs/TransformSystem.h"
 #include "../ecs/Scene.h"
 #include "../scene/SceneLoader.h"
+#include "../physics/PhysicsAPI.h"
 
 #include <cstdio>
 
@@ -16,6 +17,7 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <GLFW/glfw3.h> // para códigos de tecla
 #include <bx/math.h>
 
@@ -29,6 +31,14 @@ Application::Application() {
 
     m_physics.SetConfigPath("../../../assets/config/physics.json");
     m_physics.Initialize();
+
+    if (EventBus* bus = Physics::GetEventBus())
+    {
+        bus->Subscribe<PhysicsSystem::TriggerEvent>([this](const PhysicsSystem::TriggerEvent& evt)
+        {
+            OnTriggerEvent(evt);
+        });
+    }
 
     m_resourceManager = std::make_unique<resource::ResourceManager>();
     m_resourceManager->Initialize();
@@ -245,6 +255,31 @@ void Application::Update(double dt) {
 
     m_physics.Update(m_scene, *m_camera, m_input, dt);
 
+    std::string physicsLine;
+    PhysicsRaycastHit rayHit{};
+    float3 origin{camX, camY, camZ};
+    float3 dir{0.0f, -1.0f, 0.0f};
+    constexpr uint32_t kWorldLayerMask = 1u;
+    if (Physics::Raycast(origin, dir, 200.0f, kWorldLayerMask, rayHit))
+    {
+        const std::string label = GetEntityLabel(rayHit.entity);
+        char buffer[128];
+        std::snprintf(buffer, sizeof(buffer),
+                      "Raycast: %s @ (%.2f, %.2f, %.2f) d=%.2f",
+                      label.c_str(),
+                      rayHit.point.x, rayHit.point.y, rayHit.point.z,
+                      rayHit.distance);
+        physicsLine = buffer;
+    }
+    else
+    {
+        physicsLine = "Raycast: sin impacto";
+    }
+    if (m_renderer)
+    {
+        m_renderer->SetPhysicsDebugInfo(physicsLine);
+    }
+
     m_lastDirtyBefore = m_scene.CountDirtyTransforms();
     TransformSystem::Update(m_scene);
     m_lastDirtyAfter = m_scene.CountDirtyTransforms();
@@ -283,6 +318,9 @@ void Application::ReloadScene(const char* reason)
     m_lastMeshRendererCount = m_scene.GetMeshRendererCount();
     PrintSceneSummary(reason);
 
+    m_cjEntity = m_scene.FindEntityByLogicalId("cj");
+    m_checkpointEntity = m_scene.FindEntityByLogicalId("checkpoint");
+
     m_physics.OnSceneReloaded(m_scene);
     m_physics.ReloadConfigIfNeeded(m_scene);
     m_fixedDt = m_physics.GetFixedStep();
@@ -320,6 +358,42 @@ void Application::Render() {
 
     const PhysicsDebugLineBuffer& debugLines = m_physics.GetDebugLines();
     m_renderer->DrawDebugLines(debugLines);
-    
+
     m_renderer->EndFrame();
+}
+
+void Application::OnTriggerEvent(const PhysicsSystem::TriggerEvent& evt)
+{
+    if (evt.trigger == m_checkpointEntity && evt.other == m_cjEntity)
+    {
+        switch (evt.type)
+        {
+        case PhysicsSystem::TriggerEvent::Type::Enter:
+            std::printf("[Trigger] CJ entró al Checkpoint\n");
+            break;
+        case PhysicsSystem::TriggerEvent::Type::Exit:
+            std::printf("[Trigger] CJ salió del Checkpoint\n");
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+std::string Application::GetEntityLabel(EntityId id) const
+{
+    if (id == kInvalidEntity)
+    {
+        return "N/A";
+    }
+
+    for (const auto& [label, entity] : m_scene.GetLogicalLookup())
+    {
+        if (entity == id)
+        {
+            return label;
+        }
+    }
+
+    return std::string("#") + std::to_string(id);
 }
