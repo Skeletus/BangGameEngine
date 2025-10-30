@@ -870,7 +870,7 @@ void PhysicsSystem::StepSimulation(double dt)
     {
         m_world->debugDrawWorld();
         CollectDebugLines();
-        std::printf("[PhysicsDebug] lines=%zu\n", m_debugDrawer->GetLines().size());
+        //std::printf("[PhysicsDebug] lines=%zu\n", m_debugDrawer->GetLines().size());
     }
 }
 

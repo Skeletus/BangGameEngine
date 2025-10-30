@@ -37,6 +37,9 @@
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\BulletDebugDrawer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsAPI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -81,6 +84,9 @@
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\core\Application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\core\EventBus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\core\Time.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -88,6 +94,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\ecs\MeshRenderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\ecs\PhysicsComponents.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\ecs\RenderSystem.h">
@@ -106,6 +115,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\BulletDebugDrawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\Repositorios Github\SandboxCity\src\physics\PhysicsCharacter.h">

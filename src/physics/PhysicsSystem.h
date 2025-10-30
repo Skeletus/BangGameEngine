@@ -31,6 +31,7 @@ class btPairCachingGhostObject;
 class btKinematicCharacterController;
 class BulletDebugDrawer;
 class btMotionState;
+class btCollisionObject;
 struct PhysicsRaycastHit;
 
 class PhysicsSystem
