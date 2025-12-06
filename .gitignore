@@ -13,3 +13,5 @@ CMakeUserPresets.json
 /build/
 /build/bin
 /build/bin/RelWithDebInfo
+*.obj
+*.vcxproj
